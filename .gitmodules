@@ -1,0 +1,3 @@
+[submodule "TPM"]
+	path = TPM
+	url = https://github.com/TrustedComputingGroup/TPM.git

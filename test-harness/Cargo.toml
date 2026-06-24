@@ -1,0 +1,19 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+
+[package]
+name = "test-harness"
+edition = "2024"
+
+[features]
+default = []
+
+vendored = ["tcg-tpm-sys/vendored"]
+
+[dependencies]
+tcg-tpm-sys = { path = "../" }
+
+tracing = { version = "0.1", features = ["log"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[lints]
+workspace = true
