@@ -1,4 +1,4 @@
-# tcg-tpm-sys
+# ms-tcg-tpm-sys
 
 Rust bindings to the
 [TrustedComputingGroup/TPM](https://github.com/TrustedComputingGroup/TPM) C library.
@@ -29,7 +29,10 @@ should be able to build it without issue.
 When `TCG_TPM_LIB_DIR` is set, the build script will instead link against the
 following pre-built static libraries from the specified directory:
 
-- `librun_command.a`
+- `librun_command.a` - thin wrapper around the TPM library's setjmp/longjmp
+  based `RunCommand` entrypoint (built from `src/plat/RunCommand.c`).
+- `libruntime_state.a` - C hooks for vTPM-style live save/restore (built from
+  `overrides/src/runtime_state.c`).
 - `libTpm_CoreLib.a`
 - `libTpm_CryptoLib_Math_Ossl.a`
 - `libTpm_CryptoLib_TpmBigNum.a`
@@ -45,17 +48,42 @@ cloning, make sure to initialize submodules:
 git submodule update --init --recursive
 ```
 
+## Trying it out
+
+The workspace ships with a `test-harness` binary that initializes the TPM,
+sends a few commands (`TPM2_Startup`, `TPM2_SelfTest`, `TPM2_ClearControl`),
+exercises live save/restore, and persists NV state to an on-disk blob:
+
+```sh
+# Cold init - manufactures a fresh nvmem blob on first run.
+cargo run -p test-harness -- ./tpm.nvmem
+
+# Subsequent runs reload the existing nvmem blob (warm restart).
+cargo run -p test-harness -- ./tpm.nvmem
+```
+
 ## Workspace layout
 
 - `src/` - The `tcg-tpm-sys` crate itself, containing the Rust platform layer
-  and the safe wrapper around the TPM library.
+  and the safe wrapper around the TPM library. The `plat::api` submodule
+  implements the C `_plat__*` callbacks the TPM library expects (entropy, NV
+  memory, clock, PCR init, locality, physical presence, etc.).
+- `src/plat/RunCommand.c` - C entrypoint that wraps the TPM library's
+  `RunCommand` with setjmp/longjmp, compiled separately into `librun_command.a`.
 - `overrides/src/runtime_state.c` - C hooks used to save / restore the live
   global state of the TPM library (used for vTPM-style live save/restore).
-- `build.rs` - Build script that compiles the TPM C codebase (or links against
-  pre-built libraries when `TCG_TPM_LIB_DIR` is set).
+- `overrides/src/TpmConfiguration/` - Header overrides (`TpmBuildSwitches.h`,
+  `TpmProfile_*.h`, `VendorCommands/`) passed to the upstream CMake build via
+  `user_TpmConfiguration_Dir` to customize the TPM feature set, command list,
+  and platform profile.
+- `build.rs` - Build script that compiles the TPM C codebase via CMake (or
+  links against pre-built libraries when `TCG_TPM_LIB_DIR` is set). Only the
+  `Tpm_CoreLib`, `Tpm_CryptoLib_Math_Ossl`, and `Tpm_CryptoLib_TpmBigNum`
+  targets are built; the upstream C `Platform/` library is replaced by the
+  Rust platform layer in `src/plat/`.
 - `TPM/` - Git submodule pointing at upstream `TrustedComputingGroup/TPM`.
-- `test-harness/` - A small sample binary that initializes the TPM, sends a few
-  commands, and persists state to an on-disk `.nvram` blob.
+- `test-harness/` - A small sample binary that initializes the TPM, sends a
+  few commands, and persists state to an on-disk `.nvmem` blob.
 
 ## Relationship to `tpm-rs`
 
