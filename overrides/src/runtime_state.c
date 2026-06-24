@@ -9,7 +9,19 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define GLOBAL_C
+// We only want to *reference* the globals defined by Global.c; we must NOT
+// define GLOBAL_C here, or Global.h's EXTERN macro will expand to nothing and
+// we'll get duplicate-symbol errors at link time.
+//
+// However, several of the static globals we save are wrapped in
+// `#if defined(<source-file>_C) || defined(GLOBAL_C)` blocks. To get the
+// `extern` declarations into scope without instantiating storage, we define
+// the relevant per-source-file macros here.
+#define SESSION_PROCESS_C
+#define NV_C
+#define OBJECT_C
+#define PCR_C
+#define SESSION_C
 #include "Tpm.h"
 #include "Global.h"
 
@@ -45,7 +57,18 @@ static const uint64_t s_RuntimeStateHeaderMagic = 0x545354524D505456;
 //
 // Increment this revision on every change to the number or type of global static variables used by the TPM engine.
 //
-static const uint32_t s_RuntimeStateRevision = 3;
+// Revision 4 (v1.84 update):
+//  - g_platformUniqueDetails removed: the v1.84 replacement g_platformUniqueAuth
+//    only exists when VENDOR_PERMANENT_AUTH_ENABLED == YES, which our build
+//    disables.
+//  - g_inFailureMode, g_forceFailureMode, s_failLine, s_failCode removed:
+//    failure-mode state is now owned by the platform layer (Rust) and is
+//    serialized separately via MsTpm20RefPlatformState.
+//  - s_selfHealTimer / s_lockoutTimer removed: they're now gated by
+//    `#if !ACCUMULATE_SELF_HEAL_TIMER` in Global.h. Our build sets
+//    ACCUMULATE_SELF_HEAL_TIMER == YES, so neither global exists.
+//
+static const uint32_t s_RuntimeStateRevision = 4;
 
 //
 // Contains information about a single run-time variable.
@@ -83,8 +106,10 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         {(char *)&g_prevOrderlyState, sizeof(g_prevOrderlyState)},
         {(char *)&g_nvOk, sizeof(g_nvOk)},
         {(char *)&g_NvStatus, sizeof(g_NvStatus)},
-        // {(char *)&g_platformUniqueAuthorities, sizeof(g_platformUniqueAuthorities)}, // not ref'd
-        {(char *)&g_platformUniqueDetails, sizeof(g_platformUniqueDetails)},
+        // g_platformUniqueAuth (v1.84) / g_platformUniqueDetails (older) is
+        // only declared when VENDOR_PERMANENT_AUTH_ENABLED == YES. Our build
+        // disables it (see TpmProfile_Common.h), so there's no such global to
+        // save/restore.
         {(char *)&gp, sizeof(gp)},
         {(char *)&go, sizeof(go)},
         {(char *)&gc, sizeof(gc)},
@@ -102,7 +127,10 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         {(char *)&s_auditSessionIndex, sizeof(s_auditSessionIndex)},
         {(char *)&s_cpHashForCommandAudit, sizeof(s_cpHashForCommandAudit)},
         {(char *)&s_DAPendingOnNV, sizeof(s_DAPendingOnNV)},
-        {(char *)&s_selfHealTimer, sizeof(s_selfHealTimer)},
+        // s_selfHealTimer and s_lockoutTimer are only declared when
+        // ACCUMULATE_SELF_HEAL_TIMER == NO. Our build has it YES, so they
+        // don't exist as separate globals (the equivalent state is folded
+        // into gp.lockOutAuthEnabled / gp.failedTries / etc.).
         // {(char *)&s_evictNvEnd, sizeof(s_evictNvEnd)},  // pointer
         {(char *)&s_indexOrderlyRam, sizeof(s_indexOrderlyRam)},
         {(char *)&s_maxCounter, sizeof(s_maxCounter)},
@@ -114,11 +142,10 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         {(char *)s_sessions, sizeof(s_sessions)},
         {(char *)&s_oldestSavedSession, sizeof(s_oldestSavedSession)},
         {(char *)&s_freeSessionSlots, sizeof(s_freeSessionSlots)},
-        {(char *)&g_inFailureMode, sizeof(g_inFailureMode)},
-        {(char *)&g_forceFailureMode, sizeof(g_forceFailureMode)},
-        // {(char *)&s_failFunction, sizeof(s_failFunction)}, // pointer
-        {(char *)&s_failLine, sizeof(s_failLine)},
-        {(char *)&s_failCode, sizeof(s_failCode)}
+        // Failure-mode state (g_inFailureMode, g_forceFailureMode, s_failLine,
+        // s_failCode) used to live in the TPM core library, but in v1.84 it
+        // moved to the platform layer. The Rust platform layer owns this state
+        // and serializes it separately.
         //
 };
 

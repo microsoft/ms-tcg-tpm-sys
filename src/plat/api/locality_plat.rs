@@ -19,18 +19,6 @@ impl LocalityState {
 }
 
 impl MsTpm20RefPlatformImpl {
-    fn locality_set(&mut self, mut locality: u8) {
-        if (5..32).contains(&locality) {
-            tracing::warn!(
-                "tried to set invalid locality {}. defaulting to zero...",
-                locality
-            );
-            locality = 0;
-        }
-
-        self.state.locality.locality = locality;
-    }
-
     fn locality_get(&mut self) -> u8 {
         self.state.locality.locality
     }
@@ -43,9 +31,6 @@ mod c_api {
         platform!().locality_get()
     }
 
-    #[unsafe(no_mangle)]
-    #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__LocalitySet(locality: u8) {
-        platform!().locality_set(locality)
-    }
+    // NOTE: _plat__LocalitySet was only ever called by the upstream simulator
+    // and is not part of the v1.84 platform interface that the core library uses.
 }

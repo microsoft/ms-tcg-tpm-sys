@@ -134,13 +134,21 @@ impl MsTpm20RefPlatformImpl {
         ret
     }
 
-    fn clock_adjust_rate(&mut self, adjust: i32) {
-        match adjust.abs() {
-            CLOCK_ADJUST_COARSE | CLOCK_ADJUST_MEDIUM | CLOCK_ADJUST_FINE => {}
+    fn clock_rate_adjust(&mut self, adjustment: i32) {
+        // v1.84 renamed _plat__ClockAdjustRate -> _plat__ClockRateAdjust and
+        // changed its argument from an absolute tick delta to a small enum
+        // (_plat__ClockAdjustStep): ±1 = FINE, ±2 = MEDIUM, ±3 = COARSE.
+        let tick_delta = match adjustment {
+            -3 => -CLOCK_ADJUST_COARSE,
+            -2 => -CLOCK_ADJUST_MEDIUM,
+            -1 => -CLOCK_ADJUST_FINE,
+            1 => CLOCK_ADJUST_FINE,
+            2 => CLOCK_ADJUST_MEDIUM,
+            3 => CLOCK_ADJUST_COARSE,
             _ => return, // ignore invalid values
-        }
+        };
 
-        self.state.clock.adjust_rate = ((self.state.clock.adjust_rate as i32) + adjust).clamp(
+        self.state.clock.adjust_rate = ((self.state.clock.adjust_rate as i32) + tick_delta).clamp(
             (CLOCK_NOMINAL as i32) - CLOCK_ADJUST_LIMIT,
             (CLOCK_NOMINAL as i32) + CLOCK_ADJUST_LIMIT,
         ) as u32;
@@ -188,7 +196,7 @@ mod c_api {
 
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__ClockAdjustRate(adjust: i32) {
-        platform!().clock_adjust_rate(adjust)
+    pub unsafe extern "C" fn _plat__ClockRateAdjust(adjustment: i32) {
+        platform!().clock_rate_adjust(adjustment)
     }
 }

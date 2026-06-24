@@ -39,15 +39,8 @@ mod c_api {
         platform!().is_canceled() as i32
     }
 
-    #[unsafe(no_mangle)]
-    #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__SetCancel() {
-        platform!().set_cancel()
-    }
-
-    #[unsafe(no_mangle)]
-    #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__ClearCancel() {
-        platform!().clear_cancel()
-    }
+    // NOTE: _plat__SetCancel and _plat__ClearCancel were only ever called by
+    // the upstream simulator. Cancellation is now driven from Rust via
+    // MsTpm20RefPlatform::set_cancel_flag, which calls the underlying
+    // set_cancel()/clear_cancel() methods directly.
 }

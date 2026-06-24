@@ -232,13 +232,10 @@ mod c_api {
 
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__NVDisable(delete: i32) {
-        platform!().nv_disable(delete != 0)
-    }
-
-    #[unsafe(no_mangle)]
-    #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__IsNvAvailable() -> i32 {
+    pub unsafe extern "C" fn _plat__GetNvReadyState() -> i32 {
+        // v1.84 renamed _plat__IsNvAvailable -> _plat__GetNvReadyState.
+        // Return values are unchanged: 0 = NV_READY, 1 = NV_WRITEFAILURE,
+        // 2 = NV_RATE_LIMIT.
         platform!().is_nv_available() as i32
     }
 
@@ -267,11 +264,18 @@ mod c_api {
 
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__NvIsDifferent(
+    pub unsafe extern "C" fn _plat__NvGetChangedStatus(
         start_offset: u32,
         size: u32,
         data: *mut c_void,
     ) -> i32 {
+        // v1.84 renamed _plat__NvIsDifferent -> _plat__NvGetChangedStatus and
+        // added a third return value:
+        //   NV_HAS_CHANGED      ( 1) the NV location differs from the test value
+        //   NV_IS_SAME          ( 0) the NV location matches the test value
+        //   NV_INVALID_LOCATION (-1) the NV location is invalid (triggers failure mode)
+        const NV_INVALID_LOCATION: i32 = -1;
+
         assert!(!data.is_null());
 
         // SAFETY: caller ensures `data` and `size` are valid
@@ -281,14 +285,13 @@ mod c_api {
             Ok(is_diff) => is_diff as i32,
             Err(e) => {
                 tracing::error!(
-                    "error calling _plat__NvIsDifferent(start_offset: {:#x?}, size: {:#x?}, data: {:?}): {}",
+                    "error calling _plat__NvGetChangedStatus(start_offset: {:#x?}, size: {:#x?}, data: {:?}): {}",
                     start_offset,
                     size,
                     data,
                     e
                 );
-                // need to return something... might as well say the memory is different?
-                true as i32
+                NV_INVALID_LOCATION
             }
         }
     }
@@ -369,11 +372,5 @@ mod c_api {
                 1
             }
         }
-    }
-
-    #[unsafe(no_mangle)]
-    #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__GetNvSize() -> u32 {
-        platform!().nv_size() as u32
     }
 }

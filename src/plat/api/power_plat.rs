@@ -33,17 +33,6 @@ impl MsTpm20RefPlatformImpl {
         self.act_enable_ticks(false);
     }
 
-    fn signal_reset(&mut self) -> Result<(), Error> {
-        self.timer_reset();
-        self.state.locality.locality = 0;
-        self.state.cancel.flag = false;
-
-        // if we are doing reset but did not have a power failure, then we should
-        // not need to reload NV ...
-
-        Ok(())
-    }
-
     fn was_power_lost(&mut self) -> bool {
         let ret = self.state.power_plat.power_lost;
         self.state.power_plat.power_lost = false;
@@ -54,44 +43,14 @@ impl MsTpm20RefPlatformImpl {
 mod c_api {
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__Signal_PowerOn() -> i32 {
-        match platform!().signal_power_on() {
-            Ok(()) => 0,
-            Err(e) => {
-                tracing::error!("error while powering on: {}", e);
-                -1
-            }
-        }
-    }
-
-    #[unsafe(no_mangle)]
-    #[tracing::instrument(level = "trace")]
     pub unsafe extern "C" fn _plat__WasPowerLost() -> i32 {
         platform!().was_power_lost() as i32
     }
 
-    #[unsafe(no_mangle)]
-    #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__Signal_Reset() -> i32 {
-        let ret = match platform!().signal_reset() {
-            Ok(()) => 0,
-            Err(e) => {
-                tracing::error!("error while signalling reset: {}", e);
-                -1
-            }
-        };
-
-        // Must call _TPM_Init outside of the platform context to avoid deadlock
-        //
-        // SAFETY: _TPM_Init has no documented preconditions
-        unsafe { crate::plat::ffi::_TPM_Init() };
-
-        ret
-    }
-
-    #[unsafe(no_mangle)]
-    #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__Signal_PowerOff() {
-        platform!().signal_power_off()
-    }
+    // NOTE: _plat__Signal_PowerOn, _plat__Signal_PowerOff, and _plat__Signal_Reset
+    // were only ever called by the upstream simulator. Power transitions are now
+    // driven from Rust via MsTpm20RefPlatform::{initialize,reset,drop}, which
+    // call signal_power_on() / signal_power_off() directly. Reset goes through
+    // MsTpm20RefPlatform::reset which calls _TPM_Init explicitly outside the
+    // platform mutex.
 }

@@ -20,17 +20,11 @@ impl MsTpm20RefPlatformImpl {
 
     fn act_set_signaled(&mut self, _act: u32, _on: i32) {}
 
-    fn act_get_pending(&mut self, _act: u32) -> i32 {
-        0
-    }
-
     fn act_update_counter(&mut self, _act: u32, _new_value: u32) -> bool {
         true
     }
 
     pub fn act_enable_ticks(&mut self, _enable: bool) {}
-
-    fn act_tick(&mut self) {}
 
     fn act_initialize(&mut self) -> bool {
         false
@@ -64,12 +58,6 @@ mod c_api {
 
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__ACT_GetPending(act: u32) -> i32 {
-        platform!().act_get_pending(act)
-    }
-
-    #[unsafe(no_mangle)]
-    #[tracing::instrument(level = "trace")]
     pub unsafe extern "C" fn _plat__ACT_UpdateCounter(act: u32, new_value: u32) -> i32 {
         platform!().act_update_counter(act, new_value) as i32
     }
@@ -82,13 +70,11 @@ mod c_api {
 
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__ACT_Tick() {
-        platform!().act_tick()
-    }
-
-    #[unsafe(no_mangle)]
-    #[tracing::instrument(level = "trace")]
     pub unsafe extern "C" fn _plat__ACT_Initialize() -> i32 {
         platform!().act_initialize() as i32
     }
+
+    // NOTE: _plat__ACT_GetPending and _plat__ACT_Tick were only ever called by
+    // the upstream simulator and are not part of the v1.84 platform interface
+    // that the core library uses.
 }

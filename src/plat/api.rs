@@ -13,9 +13,14 @@ macro_rules! platform {
 pub mod cancel;
 pub mod clock;
 pub mod entropy;
+pub mod failure;
+pub mod init;
 pub mod locality_plat;
+pub mod nv_virtual;
 pub mod nvmem;
+pub mod pcr;
 pub mod platform_act;
 pub mod power_plat;
 pub mod pp_plat;
-pub mod unique;
+pub mod self_test;
+pub mod vendor_info;

@@ -7,7 +7,7 @@ use crate::error::Error;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[link(name = "Tpm_CoreLib")]
+#[link(name = "runtime_state")]
 unsafe extern "C" {
     // Returns:
     // - 0 on success

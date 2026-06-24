@@ -18,6 +18,14 @@ mod c_api {
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
     pub unsafe extern "C" fn _plat__GetEntropy(entropy: *mut u8, amount: u32) -> i32 {
+        // The TPM core library calls _plat__GetEntropy(NULL, 0) as a
+        // "seed the entropy source" probe. In that case `entropy` is
+        // legitimately NULL — return 0 (no bytes produced) without trying to
+        // dereference the buffer.
+        if amount == 0 {
+            return 0;
+        }
+
         assert!(!entropy.is_null());
 
         // SAFETY: Caller guarantees `entropy` and `amount` are valid.

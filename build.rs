@@ -45,7 +45,29 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     let tpm_config_dir = manifest_dir.join("overrides/src/TpmConfiguration");
     println!("cargo:rerun-if-changed={}", tpm_config_dir.display());
 
-    // TODO: Inject runtime_state
+    // `runtime_state.c` reads/writes the TPM library's static globals to
+    // implement hot save/restore. It must be compiled with the exact same
+    // include paths as the core library, so the struct layouts match.
+    let tpm_src_root = manifest_dir.join(SRC_PATH).join("tpm");
+    let runtime_state_path = manifest_dir.join("overrides/src/runtime_state.c");
+    println!("cargo:rerun-if-changed={}", runtime_state_path.display());
+    cc::Build::new()
+        .file(&runtime_state_path)
+        .include(tpm_src_root.join("include"))
+        .include(tpm_src_root.join("include/private"))
+        .include(tpm_src_root.join("include/private/prototypes"))
+        .include(tpm_src_root.join("include/platform_interface/Tpm_Platform_Interface"))
+        .include(tpm_src_root.join("include/platform_interface/Tpm_Platform_Interface/prototypes"))
+        .include(tpm_src_root.join("cryptolibs/TpmBigNum/include"))
+        .include(tpm_src_root.join("cryptolibs/common/include"))
+        .include(tpm_src_root.join("cryptolibs/Ossl/include"))
+        .include(&tpm_config_dir)
+        .define("BN_MATH_LIB", "Ossl")
+        .define("HASH_LIB", "Ossl")
+        .define("MATH_LIB", "TpmBigNum")
+        .define("SYM_LIB", "Ossl")
+        .compile("runtime_state");
+
     let lib_dir = cmake::Config::new(SRC_PATH)
         // We only want the core library
         .define("Tpm_BuildOption_LibOnly", "1")
@@ -84,8 +106,10 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     )
     .unwrap();
 
-    // Cargo will pick up libTpm_CoreLib and librun_command because we have functions with
-    // the `#[link(name = "...")]` attribute. However it won't pick up these automatically.
+    // Cargo will pick up librun_command and libruntime_state because we have
+    // functions with the `#[link(name = "...")]` attribute. However it won't
+    // pick up these automatically.
+    println!("cargo:rustc-link-lib=static=Tpm_CoreLib");
     println!("cargo:rustc-link-lib=static=Tpm_CryptoLib_Math_Ossl");
     println!("cargo:rustc-link-lib=static=Tpm_CryptoLib_TpmBigNum");
 
