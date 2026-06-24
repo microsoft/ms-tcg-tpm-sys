@@ -31,13 +31,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// See `README.md` for additional info regarding supported TPM library versions
 /// and crypto backends.
 fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
+    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+
     // `RunCommand.c` contains setjmp/longjmp code, and must be compiled in
     // separately. The non-longjmp mode of the TPM is not fully tested, so we
     // rely on the longjmp mode.
     // TODO: enable this in configuration
+    let run_command_path = manifest_dir.join("src/plat/RunCommand.c");
     cc::Build::new()
-        .file("./src/plat/RunCommand.c")
+        .file(&run_command_path)
         .compile("run_command");
+
+    let tpm_config_dir = manifest_dir.join("overrides/src/TpmConfiguration");
+    println!("cargo:rerun-if-changed={}", tpm_config_dir.display());
 
     // TODO: Inject runtime_state
     let lib_dir = cmake::Config::new(SRC_PATH)
@@ -49,7 +55,7 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
         .define("cryptoLib_BnMath", "Ossl")
         .define("cryptoLib_Math", "TpmBigNum")
         .register_dep("openssl")
-        // TODO Create configuration and set user_TpmConfiguration_Dir
+        .define("user_TpmConfiguration_Dir", tpm_config_dir)
         .build();
 
     // .define("MANUFACTURER", r#""MSFT""#)
