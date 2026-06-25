@@ -12,6 +12,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "autocfg"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
+
+[[package]]
 name = "cc"
 version = "1.2.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -64,6 +70,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
+name = "fs-err"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73fde052dbfc920003cfd2c8e2c6e6d4cc7c1091538c3a24226cec0665ab08c0"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -95,6 +110,20 @@ name = "memchr"
 version = "2.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
+
+[[package]]
+name = "ms-tcg-tpm-sys"
+version = "0.0.0"
+dependencies = [
+ "cc",
+ "cmake",
+ "fs-err",
+ "openssl-sys",
+ "postcard",
+ "serde",
+ "tracing",
+ "walkdir",
+]
 
 [[package]]
 name = "nu-ansi-term"
@@ -264,23 +293,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "tcg-tpm-sys"
-version = "0.0.0"
-dependencies = [
- "cc",
- "cmake",
- "openssl-sys",
- "postcard",
- "serde",
- "tracing",
- "walkdir",
-]
-
-[[package]]
 name = "test-harness"
 version = "0.0.0"
 dependencies = [
- "tcg-tpm-sys",
+ "ms-tcg-tpm-sys",
  "tracing",
  "tracing-subscriber",
 ]

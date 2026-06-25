@@ -7,6 +7,9 @@ This crate wraps the upstream C codebase, providing a callback-based "platform"
 layer implemented in Rust along with a safe Rust interface for initializing the
 TPM, dispatching commands, and saving / restoring runtime state.
 
+It is intended to be used in [OpenVMM](https://github.com/microsoft/openvmm) and
+some design decisions have been made with this in mind.
+
 ## Features
 
 The following features are enabled by default:
@@ -64,7 +67,7 @@ cargo run -p test-harness -- ./tpm.nvmem
 
 ## Workspace layout
 
-- `src/` - The `tcg-tpm-sys` crate itself, containing the Rust platform layer
+- `src/` - The `ms-tcg-tpm-sys` crate itself, containing the Rust platform layer
   and the safe wrapper around the TPM library. The `plat::api` submodule
   implements the C `_plat__*` callbacks the TPM library expects (entropy, NV
   memory, clock, PCR init, locality, physical presence, etc.).
@@ -108,7 +111,7 @@ In the future, this crate may be updated to support compiling + linking against
 alternate versions of `TrustedComputingGroup/TPM`, though at this time, there
 is no concrete roadmap as to when that is going to happen.
 
-If you are interested in extending `tcg-tpm-sys` to work with multiple
+If you are interested in extending `ms-tcg-tpm-sys` to work with multiple
 alternate versions of `TrustedComputingGroup/TPM`, please feel free to reach
 out by opening a GitHub Issue.
 
@@ -119,13 +122,13 @@ different crypto backends, at this time, the only supported crypto backend is
 OpenSSL 3.x.
 
 This particular backend was selected in order to seamlessly integrate
-`tcg-tpm-sys` into a larger codebase that was already using OpenSSL 3.x.
+`ms-tcg-tpm-sys` into a larger codebase that was already using OpenSSL 3.x.
 
 In the future, this crate may be updated to support linking against alternate
 crypto backends, though at this time, there is no concrete roadmap as to when
 that is going to happen.
 
-If you are interested in extending `tcg-tpm-sys` to work with alternate crypto
+If you are interested in extending `ms-tcg-tpm-sys` to work with alternate crypto
 backends, please feel free to reach out by opening a GitHub Issue.
 
 ### Saved-state compatibility
@@ -134,7 +137,7 @@ backends, please feel free to reach out by opening a GitHub Issue.
 saved state across revisions. This applies to both volatile (in-memory), and
 non-volatile (nvram) state.
 
-As such, `tcg-tpm-sys` makes the exact same guarantees wrt. saved state.
+As such, `ms-tcg-tpm-sys` makes the exact same guarantees wrt. saved state.
 
 ## Contributing
 

@@ -7,7 +7,7 @@ use crate::error::Error;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[link(name = "runtime_state")]
+#[link(name = "runtime_state", kind = "static")]
 unsafe extern "C" {
     // Returns:
     // - 0 on success

@@ -1,20 +1,20 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 
-//! Sample binary that uses `ms-tpm-20-ref-rs` to initialize a TPM engine, send
+//! Sample binary that uses `ms-tcg-tpm-sys` to initialize a TPM engine, send
 //! a few commands to it, and persist state to an on-disk `.nvram` blob.
 
+use ms_tcg_tpm_sys::DynResult;
+use ms_tcg_tpm_sys::InitKind;
+use ms_tcg_tpm_sys::MsTpm20RefPlatform;
+use ms_tcg_tpm_sys::PlatformCallbacks;
 use std::convert::TryInto;
 use std::fs;
 use std::io::Read;
 use std::io::Seek;
 use std::io::Write;
 use std::time::Instant;
-use tcg_tpm_sys::DynResult;
-use tcg_tpm_sys::InitKind;
-use tcg_tpm_sys::MsTpm20RefPlatform;
-use tcg_tpm_sys::PlatformCallbacks;
 
-/// Minimal callback implementation, returning fake enropy,
+/// Minimal callback implementation, returning fake entropy,
 pub struct TestPlatformCallbacks {
     file: fs::File,
     time: Instant,

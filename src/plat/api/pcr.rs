@@ -177,7 +177,11 @@ mod c_api {
         // resetLocality occupies bits 8..12; its high bit (bit 12, value 0x10)
         // marks a DRTM PCR that initializes to all 0xFF.
         let reset_locality = (attrs >> 8) & 0x1F;
-        let default_byte: u8 = if (reset_locality & 0x10) != 0 { 0xFF } else { 0x00 };
+        let default_byte: u8 = if (reset_locality & 0x10) != 0 {
+            0xFF
+        } else {
+            0x00
+        };
 
         // SAFETY: caller asserts `pcr_buffer` points to at least `buffer_size`
         // (>= pcr_size) writable bytes.
