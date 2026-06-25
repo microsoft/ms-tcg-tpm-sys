@@ -14,7 +14,7 @@ use std::io::Seek;
 use std::io::Write;
 use std::time::Instant;
 
-/// Minimal callback implementation, returning fake enropy,
+/// Minimal callback implementation, returning fake entropy,
 pub struct TestPlatformCallbacks {
     file: fs::File,
     time: Instant,
