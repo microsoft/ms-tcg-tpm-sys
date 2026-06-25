@@ -95,18 +95,15 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     fs_err::copy(
         lib_dir.join("lib").join("libTpm_CoreLib.a"),
         out_dir.join("libTpm_CoreLib.a"),
-    )
-    .unwrap();
+    )?;
     fs_err::copy(
         lib_dir.join("lib").join("libTpm_CryptoLib_Math_Ossl.a"),
         out_dir.join("libTpm_CryptoLib_Math_Ossl.a"),
-    )
-    .unwrap();
+    )?;
     fs_err::copy(
         lib_dir.join("lib").join("libTpm_CryptoLib_TpmBigNum.a"),
         out_dir.join("libTpm_CryptoLib_TpmBigNum.a"),
-    )
-    .unwrap();
+    )?;
 
     // Cargo will pick up some static libraries because we have functions with
     // the `#[link(name = "...")]` attribute. However it won't pick up these.

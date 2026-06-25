@@ -43,7 +43,7 @@ static PLATFORM: LazyLock<Mutex<Option<MsTpm20RefPlatformImpl>>> =
     LazyLock::new(|| Mutex::new(None));
 
 // Defined in `RunCommand.c`
-#[link(name = "run_command")]
+#[link(name = "run_command", kind = "static")]
 unsafe extern "C" {
     fn RunCommand(
         requestSize: u32,
@@ -54,7 +54,7 @@ unsafe extern "C" {
 }
 
 mod ffi {
-    #[link(name = "Tpm_CoreLib")]
+    #[link(name = "Tpm_CoreLib", kind = "static")]
     unsafe extern "C" {
         pub fn _TPM_Init();
         pub fn TPM_Manufacture(firstTime: ::std::os::raw::c_int) -> ::std::os::raw::c_int;

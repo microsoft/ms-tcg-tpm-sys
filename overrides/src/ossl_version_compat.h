@@ -7,8 +7,8 @@
 // It does so because it shadow-declares OpenSSL's internal `bignum_st` struct,
 // and the version guard is a tripwire against that private layout changing. The
 // layout is in fact unchanged across the whole 3.x series through 3.6.x, so
-// rather than patch the submodule-owned header we compile the redefine the 
-//  version macro to make the code think we're using 3.5.
+// rather than patch the submodule-owned header we redefine the version macro to
+// make the code think we're using 3.5.
 //
 // Only the preprocessor gate is affected. The human-readable version reported
 // by `OsslGetVersion()` is taken from `OPENSSL_VERSION_STR`, which is untouched,
