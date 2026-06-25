@@ -68,6 +68,16 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
         .define("SYM_LIB", "Ossl")
         .compile("runtime_state");
 
+    // The TPM submodule has a version check for OpenSSL <= 3.6.0, however
+    // 3.6.* is compatible with its requirements, so we relax the version check.
+    let ossl_compat = manifest_dir.join("overrides/src/ossl_version_compat.h");
+    println!("cargo:rerun-if-changed={}", ossl_compat.display());
+    let ossl_version_override = if std::env::var("CARGO_CFG_TARGET_ENV").unwrap() == "msvc" {
+        format!("/FI{}", ossl_compat.display())
+    } else {
+        format!("-include {}", ossl_compat.display())
+    };
+
     let lib_dir = cmake::Config::new(SRC_PATH)
         // We only want the core library
         .define("Tpm_BuildOption_LibOnly", "1")
@@ -77,6 +87,7 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
         .define("cryptoLib_BnMath", "Ossl")
         .define("cryptoLib_Math", "TpmBigNum")
         .register_dep("openssl")
+        .cflag(ossl_version_override)
         .define("user_TpmConfiguration_Dir", tpm_config_dir)
         .build();
 
