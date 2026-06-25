@@ -1,0 +1,89 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rustfmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install rustfmt
+        run: rustup component add rustfmt
+
+      - name: cargo fmt --check
+        run: cargo fmt --all --check
+
+  clippy:
+    name: clippy (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: openssl
+            features: openssl,vendored
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install clippy
+        run: rustup component add clippy
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake perl pkg-config
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --locked --workspace --all-targets --no-default-features --features ${{ matrix.features }} -- -D warnings
+
+  test:
+    name: test (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: openssl
+            features: openssl,vendored
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake perl pkg-config
+
+      - name: Test
+        run: cargo test --locked --workspace --no-default-features --features ${{ matrix.features }}
+
+      - name: Run test-harness (cold init)
+        run: |
+          cargo run --locked -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem
+
+      - name: Run test-harness (warm restore)
+        run: |
+          cargo run --locked -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem

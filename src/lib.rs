@@ -10,10 +10,10 @@ mod tpmlib_state;
 
 pub use error::DynResult;
 pub use error::Error;
-pub use plat::api::nvmem::NvError;
-pub use plat::api::nvmem::NV_MEMORY_SIZE;
 pub use plat::MsTpm20RefPlatform;
 pub use plat::MsTpm20RefRuntimeState;
+pub use plat::api::nvmem::NV_MEMORY_SIZE;
+pub use plat::api::nvmem::NvError;
 
 use std::borrow::Cow;
 

@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Compile the TPM C codebase to a statically linked `libTpm_CoreLib.a`.
+/// Compile the TPM C codebase to a statically linked set of libraries.
 ///
 /// See `README.md` for additional info regarding supported TPM library versions
 /// and crypto backends.
@@ -36,7 +36,6 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     // `RunCommand.c` contains setjmp/longjmp code, and must be compiled in
     // separately. The non-longjmp mode of the TPM is not fully tested, so we
     // rely on the longjmp mode.
-    // TODO: enable this in configuration
     let run_command_path = manifest_dir.join("src/plat/RunCommand.c");
     cc::Build::new()
         .file(&run_command_path)
@@ -44,13 +43,14 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
 
     let tpm_config_dir = manifest_dir.join("overrides/src/TpmConfiguration");
     println!("cargo:rerun-if-changed={}", tpm_config_dir.display());
+    println!("cargo:rerun-if-changed={}", SRC_PATH);
 
     // `runtime_state.c` reads/writes the TPM library's static globals to
     // implement hot save/restore. It must be compiled with the exact same
     // include paths as the core library, so the struct layouts match.
     let tpm_src_root = manifest_dir.join(SRC_PATH).join("tpm");
     let runtime_state_path = manifest_dir.join("overrides/src/runtime_state.c");
-    println!("cargo:rerun-if-changed={}", runtime_state_path.display());
+
     cc::Build::new()
         .file(&runtime_state_path)
         .include(tpm_src_root.join("include"))
@@ -80,36 +80,25 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
         .define("user_TpmConfiguration_Dir", tpm_config_dir)
         .build();
 
-    // .define("MANUFACTURER", r#""MSFT""#)
-    // .define("VENDOR_STRING_1", r#""TPM ""#)
-    // .define("VENDOR_STRING_2", r#""Simu""#)
-    // .define("VENDOR_STRING_3", r#""lato""#)
-    // .define("VENDOR_STRING_4", r#""r   ""#)
-    // .define("FIRMWARE_V1", "0x20200312")
-    // .define("FIRMWARE_V2", "0x00120003")
-    // .define("NV_MEMORY_SIZE", "0x8000")
-
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    std::fs::copy(
+    fs_err::copy(
         lib_dir.join("lib").join("libTpm_CoreLib.a"),
         out_dir.join("libTpm_CoreLib.a"),
     )
     .unwrap();
-    std::fs::copy(
+    fs_err::copy(
         lib_dir.join("lib").join("libTpm_CryptoLib_Math_Ossl.a"),
         out_dir.join("libTpm_CryptoLib_Math_Ossl.a"),
     )
     .unwrap();
-    std::fs::copy(
+    fs_err::copy(
         lib_dir.join("lib").join("libTpm_CryptoLib_TpmBigNum.a"),
         out_dir.join("libTpm_CryptoLib_TpmBigNum.a"),
     )
     .unwrap();
 
-    // Cargo will pick up librun_command and libruntime_state because we have
-    // functions with the `#[link(name = "...")]` attribute. However it won't
-    // pick up these automatically.
-    println!("cargo:rustc-link-lib=static=Tpm_CoreLib");
+    // Cargo will pick up some static libraries because we have functions with
+    // the `#[link(name = "...")]` attribute. However it won't pick up these.
     println!("cargo:rustc-link-lib=static=Tpm_CryptoLib_Math_Ossl");
     println!("cargo:rustc-link-lib=static=Tpm_CryptoLib_TpmBigNum");
 

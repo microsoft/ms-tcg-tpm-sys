@@ -57,10 +57,7 @@ mod c_api {
     /// Service `TPM2_NV_Read` for a virtual index. Unreachable.
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__NvVirtual_Read(
-        _in: *mut c_void,
-        _out: *mut c_void,
-    ) -> u32 {
+    pub unsafe extern "C" fn _plat__NvVirtual_Read(_in: *mut c_void, _out: *mut c_void) -> u32 {
         TPM_RC_NO_RESULT
     }
 

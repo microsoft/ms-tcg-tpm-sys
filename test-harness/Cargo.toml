@@ -5,12 +5,13 @@ name = "test-harness"
 edition = "2024"
 
 [features]
-default = []
+default = ["openssl"]
 
-vendored = ["tcg-tpm-sys/vendored"]
+openssl = ["ms-tcg-tpm-sys/openssl"]
+vendored = ["ms-tcg-tpm-sys/vendored"]
 
 [dependencies]
-tcg-tpm-sys = { path = "../" }
+ms-tcg-tpm-sys = { path = "../", default-features = false }
 
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

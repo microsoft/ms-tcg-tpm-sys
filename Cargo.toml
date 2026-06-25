@@ -1,7 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 
 [package]
-name = "tcg-tpm-sys"
+name = "ms-tcg-tpm-sys"
 edition = "2024"
 license = "MIT"
 description = "Rust bindings to v1.84 of the TCG TPM"
@@ -25,6 +25,7 @@ serde = { version = "1.0", features = ["derive"] }
 [build-dependencies]
 cc = "1.2"
 cmake = "0.1"
+fs-err = "3.3"
 walkdir = "2.3.2"
 
 [lints]

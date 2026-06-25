@@ -53,8 +53,8 @@ unsafe extern "C" {
     );
 }
 
-// methods defined within ms-tpm-20-ref
 mod ffi {
+    #[link(name = "Tpm_CoreLib")]
     unsafe extern "C" {
         pub fn _TPM_Init();
         pub fn TPM_Manufacture(firstTime: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
