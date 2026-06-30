@@ -153,7 +153,9 @@ impl MsTpm20RefPlatform {
 
         // SAFETY: the nvram state has been manufactured (either by loading an existing
         // nvram blob, or through TPM_Manufacture), and has been powered on.
-        unsafe { ffi::_TPM_Init() }
+        unsafe {
+            ffi::_TPM_Init();
+        }
 
         tracing::info!("TPM library initialized");
 
