@@ -51,6 +51,7 @@ impl PlatformCallbacks for TestPlatformCallbacks {
 const USAGE: &str = r#"
 usage: test-harness <.nvmem file>
 "#;
+const TPM_RC_SUCCESS: u32 = 0;
 
 fn main() -> DynResult<()> {
     tracing_subscriber::fmt::fmt()
@@ -103,25 +104,25 @@ fn extract_res(res: &[u8]) -> (u16, u32, String) {
     let tag = u16::from_be_bytes(res[0..2].try_into().unwrap());
     let size = u32::from_be_bytes(res[2..6].try_into().unwrap());
     let code = u32::from_be_bytes(res[6..10].try_into().unwrap());
+    let bounded_size = std::cmp::min(size as usize, res.len());
 
     let mut res_str = String::new();
-    for b in &res[..std::cmp::min(size as usize, res.len())] {
+    for b in &res[..bounded_size] {
         res_str.push_str(&format!("{:02x?}", b));
     }
 
     (tag, code, res_str)
 }
 
-fn send_cmd(platform: &mut MsTpm184Platform, cmd_name: &str, cmd: &[u8]) -> DynResult<Vec<u8>> {
+fn send_cmd(platform: &mut MsTpm184Platform, cmd_name: &str, cmd: &mut [u8]) -> DynResult<Vec<u8>> {
     let mut res = vec![0; 4096];
-    let mut cmd = cmd.to_vec();
 
-    platform.execute_command(&mut cmd, &mut res)?;
+    platform.execute_command(cmd, &mut res)?;
 
     let (tag, code, res_str) = extract_res(&res);
     eprintln!("{cmd_name} cmd response: ({tag:04x}, {code}, \"{res_str}\")");
 
-    if code != 0 {
+    if code != TPM_RC_SUCCESS {
         return Err(std::io::Error::other(format!(
             "{cmd_name} returned non-success response code {code:#010x}"
         ))
@@ -134,53 +135,38 @@ fn send_cmd(platform: &mut MsTpm184Platform, cmd_name: &str, cmd: &[u8]) -> DynR
 /// Sends a few basic commands to ensure basic TPM engine functionality works.
 fn smoke_test_tpm(platform: &mut MsTpm184Platform) -> DynResult<()> {
     // send startup command
-    send_cmd(
-        platform,
-        "startup",
-        &[
-            0x80, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x01, 0x44, 0x00, 0x00,
-        ],
-    )?;
+    let mut startup_cmd = [
+        0x80, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x01, 0x44, 0x00, 0x00,
+    ];
+    send_cmd(platform, "startup", &mut startup_cmd)?;
 
     // send self test command
-    send_cmd(
-        platform,
-        "self test",
-        &[
-            0x80, 0x01, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00, 0x01, 0x43, 0x01,
-        ],
-    )?;
+    let mut self_test_cmd = [
+        0x80, 0x01, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00, 0x01, 0x43, 0x01,
+    ];
+    send_cmd(platform, "self test", &mut self_test_cmd)?;
 
     // query self-test status
-    send_cmd(
-        platform,
-        "get test result",
-        &[0x80, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x01, 0x7c],
-    )?;
+    let mut test_result_cmd = [0x80, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x01, 0x7c];
+    send_cmd(platform, "get test result", &mut test_result_cmd)?;
 
     // request random bytes
-    send_cmd(
-        platform,
-        "get random",
-        &[
-            0x80, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x01, 0x7b, 0x00, 0x10,
-        ],
-    )?;
+    let mut get_random_cmd = [
+        0x80, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x01, 0x7b, 0x00, 0x10,
+    ];
+    send_cmd(platform, "get random", &mut get_random_cmd)?;
 
     // quick sanity check
     let state = platform.save_state();
     platform.restore_state(state).unwrap();
 
     // clear tpm hierarchy control
-    send_cmd(
-        platform,
-        "clear tpm hierarchy control",
-        &[
-            0x80, 0x02, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x01, 0x21, 0x40, 0x00, 0x00, 0x0c,
-            0x00, 0x00, 0x00, 0x09, 0x40, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40,
-            0x00, 0x00, 0x0c, 0x00,
-        ],
-    )?;
+    let mut clear_cmd = [
+        0x80, 0x02, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x01, 0x21, 0x40, 0x00, 0x00, 0x0c, 0x00,
+        0x00, 0x00, 0x09, 0x40, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00,
+        0x0c, 0x00,
+    ];
+    send_cmd(platform, "clear tpm hierarchy control", &mut clear_cmd)?;
     Ok(())
 }
 
