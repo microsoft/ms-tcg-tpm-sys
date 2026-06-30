@@ -7,7 +7,7 @@ use serde::Serialize;
 
 use crate::error::Error;
 
-use super::super::MsTpm20RefPlatformImpl;
+use super::super::MsTpm184PlatformImpl;
 
 /// The size of the non-volatile memory.
 pub const NV_MEMORY_SIZE: usize = 0x8000;
@@ -56,7 +56,7 @@ enum NvAvailability {
     RateLimit = 2,
 }
 
-impl MsTpm20RefPlatformImpl {
+impl MsTpm184PlatformImpl {
     pub fn nv_enable_from_blob(&mut self, blob: &[u8]) -> Result<(), Error> {
         if self.state.nvmem.is_init {
             return Err(NvError::AlreadyInitialized.into());
@@ -73,7 +73,7 @@ impl MsTpm20RefPlatformImpl {
     }
 }
 
-impl MsTpm20RefPlatformImpl {
+impl MsTpm184PlatformImpl {
     pub fn nv_enable(&mut self) -> Result<(), Error> {
         if !self.state.nvmem.is_init {
             tracing::debug!("calling __plat_NvEnable before `nv_enable_from_blob` was called");

@@ -7,7 +7,7 @@ use serde::Serialize;
 
 use crate::error::Error;
 
-use super::super::MsTpm20RefPlatformImpl;
+use super::super::MsTpm184PlatformImpl;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PowerPlatState {
@@ -20,7 +20,7 @@ impl PowerPlatState {
     }
 }
 
-impl MsTpm20RefPlatformImpl {
+impl MsTpm184PlatformImpl {
     pub fn signal_power_on(&mut self) -> Result<(), Error> {
         self.timer_reset();
         self.state.power_plat.power_lost = true;
@@ -49,8 +49,8 @@ mod c_api {
 
     // NOTE: _plat__Signal_PowerOn, _plat__Signal_PowerOff, and _plat__Signal_Reset
     // were only ever called by the upstream simulator. Power transitions are now
-    // driven from Rust via MsTpm20RefPlatform::{initialize,reset,drop}, which
+    // driven from Rust via MsTpm184Platform::{initialize,reset,drop}, which
     // call signal_power_on() / signal_power_off() directly. Reset goes through
-    // MsTpm20RefPlatform::reset which calls _TPM_Init explicitly outside the
+    // MsTpm184Platform::reset which calls _TPM_Init explicitly outside the
     // platform mutex.
 }

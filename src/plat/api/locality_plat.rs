@@ -5,7 +5,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-use super::super::MsTpm20RefPlatformImpl;
+use super::super::MsTpm184PlatformImpl;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct LocalityState {
@@ -18,7 +18,7 @@ impl LocalityState {
     }
 }
 
-impl MsTpm20RefPlatformImpl {
+impl MsTpm184PlatformImpl {
     fn locality_get(&mut self) -> u8 {
         self.state.locality.locality
     }

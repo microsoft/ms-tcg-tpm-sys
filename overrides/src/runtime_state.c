@@ -63,7 +63,7 @@ static const uint64_t s_RuntimeStateHeaderMagic = 0x545354524D505456;
 //    disables.
 //  - g_inFailureMode, g_forceFailureMode, s_failLine, s_failCode removed:
 //    failure-mode state is now owned by the platform layer (Rust) and is
-//    serialized separately via MsTpm20RefPlatformState.
+//    serialized separately via MsTpm184PlatformState.
 //  - s_selfHealTimer / s_lockoutTimer removed: they're now gated by
 //    `#if !ACCUMULATE_SELF_HEAL_TIMER` in Global.h. Our build sets
 //    ACCUMULATE_SELF_HEAL_TIMER == YES, so neither global exists.

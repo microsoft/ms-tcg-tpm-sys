@@ -7,7 +7,7 @@ use std::convert::TryInto;
 use serde::Deserialize;
 use serde::Serialize;
 
-use super::super::MsTpm20RefPlatformImpl;
+use super::super::MsTpm184PlatformImpl;
 
 const CLOCK_NOMINAL: u32 = 30000;
 const CLOCK_ADJUST_LIMIT: i32 = 5000;
@@ -52,13 +52,13 @@ impl ClockState {
     }
 }
 
-impl MsTpm20RefPlatformImpl {
+impl MsTpm184PlatformImpl {
     pub fn timer_reset(&mut self) {
         self.state.clock = ClockState::new();
     }
 }
 
-impl MsTpm20RefPlatformImpl {
+impl MsTpm184PlatformImpl {
     // Ported over from ms-tps-20-re/TPMCmd/Platform/src/Clock.c
     fn timer_read(&mut self) -> u64 {
         let ClockState {
