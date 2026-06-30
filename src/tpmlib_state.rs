@@ -24,11 +24,11 @@ unsafe extern "C" {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct MsTpm20RefLibraryState {
+pub struct MsTpm184LibraryState {
     opaque: Vec<u8>,
 }
 
-pub fn get_runtime_state() -> MsTpm20RefLibraryState {
+pub fn get_runtime_state() -> MsTpm184LibraryState {
     let mut size: u32 = 0;
     // SAFETY: passing a nullptr returns the required size
     let ret = unsafe { INJECTED_GetRuntimeState(std::ptr::null_mut(), &mut size) };
@@ -36,7 +36,7 @@ pub fn get_runtime_state() -> MsTpm20RefLibraryState {
     assert_eq!(ret, 2);
     assert_ne!(size, 0);
 
-    let mut state = MsTpm20RefLibraryState {
+    let mut state = MsTpm184LibraryState {
         opaque: vec![0; size as usize],
     };
 
@@ -49,7 +49,7 @@ pub fn get_runtime_state() -> MsTpm20RefLibraryState {
     state
 }
 
-pub fn restore_runtime_state(state: MsTpm20RefLibraryState) -> Result<(), Error> {
+pub fn restore_runtime_state(state: MsTpm184LibraryState) -> Result<(), Error> {
     // SAFETY: passing valid pointer + size pair from a Rust Vec<u8>
     let ret =
         unsafe { INJECTED_ApplyRuntimeState(state.opaque.as_ptr(), state.opaque.len() as u32) };

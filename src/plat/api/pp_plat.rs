@@ -2,9 +2,9 @@
 
 //! PPPlat.c
 
-use super::super::MsTpm20RefPlatformImpl;
+use super::super::MsTpm184PlatformImpl;
 
-impl MsTpm20RefPlatformImpl {
+impl MsTpm184PlatformImpl {
     fn physical_presence_asserted(&mut self) -> bool {
         false
     }

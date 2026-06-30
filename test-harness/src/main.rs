@@ -5,7 +5,7 @@
 
 use ms_tcg_tpm_sys::DynResult;
 use ms_tcg_tpm_sys::InitKind;
-use ms_tcg_tpm_sys::MsTpm20RefPlatform;
+use ms_tcg_tpm_sys::MsTpm184Platform;
 use ms_tcg_tpm_sys::PlatformCallbacks;
 use std::convert::TryInto;
 use std::fs;
@@ -86,7 +86,7 @@ fn main() -> DynResult<()> {
         }
     };
 
-    let mut platform = MsTpm20RefPlatform::initialize(
+    let mut platform = MsTpm184Platform::initialize(
         Box::new(TestPlatformCallbacks {
             file,
             time: Instant::now(),
@@ -113,7 +113,7 @@ fn extract_res(res: &[u8]) -> (u16, u32, String) {
 }
 
 /// Sends a few basic commands to ensure basic TPM engine functionality works.
-fn smoke_test_tpm(platform: &mut MsTpm20RefPlatform) -> DynResult<()> {
+fn smoke_test_tpm(platform: &mut MsTpm184Platform) -> DynResult<()> {
     let mut res = vec![0; 4096];
 
     // send startup command

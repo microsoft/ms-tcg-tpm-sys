@@ -10,8 +10,8 @@ mod tpmlib_state;
 
 pub use error::DynResult;
 pub use error::Error;
-pub use plat::MsTpm20RefPlatform;
-pub use plat::MsTpm20RefRuntimeState;
+pub use plat::MsTpm184Platform;
+pub use plat::MsTpm184RuntimeState;
 pub use plat::api::nvmem::NV_MEMORY_SIZE;
 pub use plat::api::nvmem::NvError;
 

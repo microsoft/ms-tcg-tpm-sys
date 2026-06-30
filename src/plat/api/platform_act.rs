@@ -2,10 +2,10 @@
 
 //! PlatformACT.c
 
-use super::super::MsTpm20RefPlatformImpl;
+use super::super::MsTpm184PlatformImpl;
 
-// TODO: model ACTs using `PlaformCallbacks`?
-impl MsTpm20RefPlatformImpl {
+// TODO: model ACTs using `PlatformCallbacks`?
+impl MsTpm184PlatformImpl {
     fn act_get_implemented(&mut self, _act: u32) -> bool {
         true // must report true, or else TPM_Manufacture fails
     }
