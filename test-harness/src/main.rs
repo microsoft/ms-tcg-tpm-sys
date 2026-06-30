@@ -53,7 +53,7 @@ usage: test-harness <.nvmem file>
 "#;
 const TPM_RC_SUCCESS: u32 = 0;
 
-fn main() -> DynResult<()> {
+fn main() {
     tracing_subscriber::fmt::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
@@ -61,7 +61,7 @@ fn main() -> DynResult<()> {
     let file_path = match std::env::args().nth(1) {
         None => {
             eprintln!("{}", USAGE.trim());
-            return Ok(());
+            return;
         }
         Some(file_name) => std::path::PathBuf::from(file_name),
     };
@@ -69,19 +69,20 @@ fn main() -> DynResult<()> {
     let is_cold_init = !file_path.exists();
 
     let mut file = if is_cold_init {
-        fs::File::create(file_path)?
+        fs::File::create(file_path).unwrap()
     } else {
         fs::OpenOptions::new()
             .write(true)
             .read(true)
-            .open(file_path)?
+            .open(file_path)
+            .unwrap()
     };
 
     let init_kind = if is_cold_init {
         InitKind::ColdInit
     } else {
         let mut blob = Vec::new();
-        file.read_to_end(&mut blob)?;
+        file.read_to_end(&mut blob).unwrap();
         InitKind::ColdInitWithPersistentState {
             nvmem_blob: blob.into(),
         }
@@ -93,11 +94,10 @@ fn main() -> DynResult<()> {
             time: Instant::now(),
         }),
         init_kind,
-    )?;
+    )
+    .unwrap();
 
-    smoke_test_tpm(&mut platform)?;
-
-    Ok(())
+    smoke_test_tpm(&mut platform);
 }
 
 fn extract_res(res: &[u8]) -> (u16, u32, String) {
@@ -113,47 +113,44 @@ fn extract_res(res: &[u8]) -> (u16, u32, String) {
     (tag, code, res_str)
 }
 
-fn send_cmd(platform: &mut MsTpm184Platform, cmd_name: &str, cmd: &mut [u8]) -> DynResult<Vec<u8>> {
+fn send_cmd(platform: &mut MsTpm184Platform, cmd_name: &str, cmd: &mut [u8]) -> Vec<u8> {
     let mut res = vec![0; 4096];
 
-    platform.execute_command(cmd, &mut res)?;
+    platform.execute_command(cmd, &mut res).unwrap();
 
     let (tag, code, res_str) = extract_res(&res);
     eprintln!("{cmd_name} cmd response: ({tag:04x}, {code}, \"{res_str}\")");
 
     if code != TPM_RC_SUCCESS {
-        return Err(std::io::Error::other(format!(
-            "{cmd_name} returned non-success response code {code:#010x}"
-        ))
-        .into());
+        panic!("{cmd_name} returned non-success response code {code:#010x}");
     }
 
-    Ok(res)
+    res
 }
 
 /// Sends a few basic commands to ensure basic TPM engine functionality works.
-fn smoke_test_tpm(platform: &mut MsTpm184Platform) -> DynResult<()> {
+fn smoke_test_tpm(platform: &mut MsTpm184Platform) {
     // send startup command
     let mut startup_cmd = [
         0x80, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x01, 0x44, 0x00, 0x00,
     ];
-    send_cmd(platform, "startup", &mut startup_cmd)?;
+    send_cmd(platform, "startup", &mut startup_cmd);
 
     // send self test command
     let mut self_test_cmd = [
         0x80, 0x01, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00, 0x01, 0x43, 0x01,
     ];
-    send_cmd(platform, "self test", &mut self_test_cmd)?;
+    send_cmd(platform, "self test", &mut self_test_cmd);
 
     // query self-test status
     let mut test_result_cmd = [0x80, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x01, 0x7c];
-    send_cmd(platform, "get test result", &mut test_result_cmd)?;
+    send_cmd(platform, "get test result", &mut test_result_cmd);
 
     // request random bytes
     let mut get_random_cmd = [
         0x80, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x01, 0x7b, 0x00, 0x10,
     ];
-    send_cmd(platform, "get random", &mut get_random_cmd)?;
+    send_cmd(platform, "get random", &mut get_random_cmd);
 
     // quick sanity check
     let state = platform.save_state();
@@ -165,8 +162,7 @@ fn smoke_test_tpm(platform: &mut MsTpm184Platform) -> DynResult<()> {
         0x00, 0x00, 0x09, 0x40, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00,
         0x0c, 0x00,
     ];
-    send_cmd(platform, "clear tpm hierarchy control", &mut clear_cmd)?;
-    Ok(())
+    send_cmd(platform, "clear tpm hierarchy control", &mut clear_cmd);
 }
 
 #[cfg(test)]
