@@ -65,15 +65,15 @@ mod ffi {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct MsTpm184RuntimeState {
     tpmlib_state: tpmlib_state::MsTpm184LibraryState,
-    platform_state: MsTpm20PlatformState,
+    platform_state: MsTpm184PlatformState,
 }
 
 /// A handle which encapsulates the logical ownership of the global platform
 /// singleton.
 ///
 /// Only a single instance of `MsTpm184Platform` can be live at any given
-/// time. If [`MsTpm184Platform::initialize`] is called while a instance of
-/// `MsTpm20Platform` is still live, it will return an
+/// time. If [`MsTpm184Platform::initialize`] is called while an instance of
+/// `MsTpm184Platform` is still live, it will return an
 /// [`Error::AlreadyInitialized`].
 ///
 /// When `MsTpm184Platform` is dropped, it will uninitialize the platform,
@@ -346,7 +346,7 @@ impl Drop for MsTpm184Platform {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-struct MsTpm20PlatformState {
+struct MsTpm184PlatformState {
     cancel: api::cancel::CancelState,
     locality: api::locality_plat::LocalityState,
     clock: api::clock::ClockState,
@@ -354,9 +354,9 @@ struct MsTpm20PlatformState {
     nvmem: api::nvmem::NvState,
 }
 
-impl MsTpm20PlatformState {
-    fn new(size: usize) -> MsTpm20PlatformState {
-        MsTpm20PlatformState {
+impl MsTpm184PlatformState {
+    fn new(size: usize) -> MsTpm184PlatformState {
+        MsTpm184PlatformState {
             cancel: api::cancel::CancelState::new(),
             locality: api::locality_plat::LocalityState::new(),
             clock: api::clock::ClockState::new(),
@@ -368,22 +368,22 @@ impl MsTpm20PlatformState {
 
 struct MsTpm184PlatformImpl {
     callbacks: Box<dyn PlatformCallbacks + Send>,
-    state: MsTpm20PlatformState,
+    state: MsTpm184PlatformState,
 }
 
 impl MsTpm184PlatformImpl {
     fn new(callbacks: Box<dyn PlatformCallbacks + Send>, size: usize) -> MsTpm184PlatformImpl {
         MsTpm184PlatformImpl {
             callbacks,
-            state: MsTpm20PlatformState::new(size),
+            state: MsTpm184PlatformState::new(size),
         }
     }
 
-    fn restore_runtime_state(&mut self, state: MsTpm20PlatformState) {
+    fn restore_runtime_state(&mut self, state: MsTpm184PlatformState) {
         self.state = state;
     }
 
-    fn get_runtime_state(&self) -> MsTpm20PlatformState {
+    fn get_runtime_state(&self) -> MsTpm184PlatformState {
         self.state.clone()
     }
 }

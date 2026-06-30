@@ -4,7 +4,7 @@
 
 use super::super::MsTpm184PlatformImpl;
 
-// TODO: model ACTs using `PlaformCallbacks`?
+// TODO: model ACTs using `PlatformCallbacks`?
 impl MsTpm184PlatformImpl {
     fn act_get_implemented(&mut self, _act: u32) -> bool {
         true // must report true, or else TPM_Manufacture fails
