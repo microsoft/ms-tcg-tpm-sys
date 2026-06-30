@@ -104,10 +104,9 @@ fn extract_res(res: &[u8]) -> (u16, u32, String) {
     let tag = u16::from_be_bytes(res[0..2].try_into().unwrap());
     let size = u32::from_be_bytes(res[2..6].try_into().unwrap());
     let code = u32::from_be_bytes(res[6..10].try_into().unwrap());
-    let bounded_size = std::cmp::min(size as usize, res.len());
 
     let mut res_str = String::new();
-    for b in &res[..bounded_size] {
+    for b in &res[..size as usize] {
         res_str.push_str(&format!("{:02x?}", b));
     }
 
@@ -185,10 +184,9 @@ mod tests {
     }
 
     #[test]
-    fn extract_res_caps_size_to_buffer_len() {
+    #[should_panic]
+    fn extract_res_errors_on_size_mismatch() {
         let res = [0x80, 0x01, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00];
-        let (_tag, _code, res_str) = extract_res(&res);
-
-        assert_eq!(res_str, "8001000000ff00000000");
+        let _ = extract_res(&res);
     }
 }
