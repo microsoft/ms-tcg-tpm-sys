@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-/// ms-tpm-20-ref errors
+/// ms-tcg-tpm-sys errors
 #[derive(Debug)]
 pub enum Error {
     /// Platform is already initialized

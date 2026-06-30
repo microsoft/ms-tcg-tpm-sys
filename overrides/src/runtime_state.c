@@ -2,7 +2,7 @@
 
 // Hooks to save/restore all live global state of the TPM library
 //
-// This is not functionality built into ms-tpm-20-ref, as it's a pretty niche
+// This is not functionality built into ms-tcg-tpm-sys, as it's a pretty niche
 // requirement (only really relevant for things like vTPMs, which must support
 // live save/restore).
 

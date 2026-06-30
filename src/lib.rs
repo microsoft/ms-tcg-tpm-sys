@@ -1,6 +1,6 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 
-//! Callback-based Platform implementation for `ms-tpm-20-ref`
+//! Callback-based Platform implementation for `ms-tcg-tpm-sys`
 
 #![warn(missing_docs)]
 

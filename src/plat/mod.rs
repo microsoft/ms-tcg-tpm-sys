@@ -60,7 +60,7 @@ mod ffi {
     }
 }
 
-/// Serde de/serializable representation of the ms-tpm-20-ref library's runtime
+/// Serde de/serializable representation of the ms-tcg-tpm-sys library's runtime
 /// state (both core C library runtime, and Rust platform runtime)
 #[derive(Clone, Serialize, Deserialize)]
 pub struct MsTpm184RuntimeState {
