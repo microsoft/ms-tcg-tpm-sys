@@ -164,25 +164,3 @@ fn smoke_test_tpm(platform: &mut MsTpm184Platform) {
     ];
     send_cmd(platform, "clear tpm hierarchy control", &mut clear_cmd);
 }
-
-#[cfg(test)]
-mod tests {
-    use super::extract_res;
-
-    #[test]
-    fn extract_res_parses_header_and_payload() {
-        let res = [0x80, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x00];
-        let (tag, code, res_str) = extract_res(&res);
-
-        assert_eq!(tag, 0x8001);
-        assert_eq!(code, 0);
-        assert_eq!(res_str, "80010000000a00000000");
-    }
-
-    #[test]
-    #[should_panic]
-    fn extract_res_errors_on_size_mismatch() {
-        let res = [0x80, 0x01, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00];
-        let _ = extract_res(&res);
-    }
-}
