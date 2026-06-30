@@ -105,54 +105,104 @@ fn extract_res(res: &[u8]) -> (u16, u32, String) {
     let code = u32::from_be_bytes(res[6..10].try_into().unwrap());
 
     let mut res_str = String::new();
-    for b in &res[..size as usize] {
+    for b in &res[..std::cmp::min(size as usize, res.len())] {
         res_str.push_str(&format!("{:02x?}", b));
     }
 
     (tag, code, res_str)
 }
 
+fn send_cmd(platform: &mut MsTpm184Platform, cmd_name: &str, cmd: &[u8]) -> DynResult<Vec<u8>> {
+    let mut res = vec![0; 4096];
+    let mut cmd = cmd.to_vec();
+
+    platform.execute_command(&mut cmd, &mut res)?;
+
+    let (tag, code, res_str) = extract_res(&res);
+    eprintln!("{cmd_name} cmd response: ({tag:04x}, {code}, \"{res_str}\")");
+
+    if code != 0 {
+        return Err(std::io::Error::other(format!(
+            "{cmd_name} returned non-success response code {code:#010x}"
+        ))
+        .into());
+    }
+
+    Ok(res)
+}
+
 /// Sends a few basic commands to ensure basic TPM engine functionality works.
 fn smoke_test_tpm(platform: &mut MsTpm184Platform) -> DynResult<()> {
-    let mut res = vec![0; 4096];
-
     // send startup command
-    platform.execute_command(
-        &mut [
+    send_cmd(
+        platform,
+        "startup",
+        &[
             0x80, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x01, 0x44, 0x00, 0x00,
         ],
-        &mut res,
     )?;
-
-    eprintln!("startup cmd response: {:x?}", extract_res(&res));
 
     // send self test command
-    platform.execute_command(
-        &mut [
+    send_cmd(
+        platform,
+        "self test",
+        &[
             0x80, 0x01, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00, 0x01, 0x43, 0x01,
         ],
-        &mut res,
     )?;
 
-    eprintln!("self test cmd response: {:x?}", extract_res(&res));
+    // query self-test status
+    send_cmd(
+        platform,
+        "get test result",
+        &[0x80, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x01, 0x7c],
+    )?;
+
+    // request random bytes
+    send_cmd(
+        platform,
+        "get random",
+        &[
+            0x80, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x01, 0x7b, 0x00, 0x10,
+        ],
+    )?;
 
     // quick sanity check
     let state = platform.save_state();
     platform.restore_state(state).unwrap();
 
     // clear tpm hierarchy control
-    platform.execute_command(
-        &mut [
+    send_cmd(
+        platform,
+        "clear tpm hierarchy control",
+        &[
             0x80, 0x02, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x01, 0x21, 0x40, 0x00, 0x00, 0x0c,
             0x00, 0x00, 0x00, 0x09, 0x40, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40,
             0x00, 0x00, 0x0c, 0x00,
         ],
-        &mut res,
     )?;
-
-    eprintln!(
-        "clear tpm hierarchy control cmd response: {:x?}",
-        extract_res(&res)
-    );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_res;
+
+    #[test]
+    fn extract_res_parses_header_and_payload() {
+        let res = [0x80, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x00];
+        let (tag, code, res_str) = extract_res(&res);
+
+        assert_eq!(tag, 0x8001);
+        assert_eq!(code, 0);
+        assert_eq!(res_str, "80010000000a00000000");
+    }
+
+    #[test]
+    fn extract_res_caps_size_to_buffer_len() {
+        let res = [0x80, 0x01, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00];
+        let (_tag, _code, res_str) = extract_res(&res);
+
+        assert_eq!(res_str, "8001000000ff00000000");
+    }
 }
