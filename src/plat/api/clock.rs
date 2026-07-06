@@ -9,12 +9,15 @@ use serde::Serialize;
 
 use super::super::MsTpm184PlatformImpl;
 
+/// CLOCK_NOMINAL is the number of hardware ticks per ms. A value of 30000 means
+/// that the nominal clock rate used to drive the hardware clock is 30 MHz. The
+/// adjustment rates are used to determine the conversion of the hardware ticks to
+/// internal hardware clock value. In practice, we would expect that there would be
+/// a hardware register will accumulated mS. It would be incremented by the output
+/// of a pre-scaler. The pre-scaler would divide the ticks from the clock by some
+/// value that would compensate for the difference between clock time and real time.
+/// The code here does the emulation of this function.
 const CLOCK_NOMINAL: u32 = 30000;
-const CLOCK_ADJUST_LIMIT: i32 = 5000;
-
-const CLOCK_ADJUST_COARSE: i32 = 300;
-const CLOCK_ADJUST_MEDIUM: i32 = 30;
-const CLOCK_ADJUST_FINE: i32 = 1;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ClockState {
@@ -42,7 +45,7 @@ impl ClockState {
             adjust_rate: CLOCK_NOMINAL,
 
             timer_reset: true,
-            timer_stopped: false,
+            timer_stopped: true,
 
             last_system_time: 0,
             last_reported_time: 0,
@@ -53,13 +56,11 @@ impl ClockState {
 }
 
 impl MsTpm184PlatformImpl {
+    /// Reset the timer.
     pub fn timer_reset(&mut self) {
         self.state.clock = ClockState::new();
     }
-}
 
-impl MsTpm184PlatformImpl {
-    // Ported over from ms-tps-20-re/TPMCmd/Platform/src/Clock.c
     fn timer_read(&mut self) -> u64 {
         let ClockState {
             adjust_rate,
@@ -70,8 +71,9 @@ impl MsTpm184PlatformImpl {
             ..
         } = &mut self.state.clock;
 
-        let now = self.callbacks.monotonic_timer().as_millis();
+        let mut now = self.callbacks.monotonic_timer().as_millis();
 
+        // if this hasn't been initialized, initialize it
         if *last_system_time == 0 {
             *last_system_time = now;
             *last_reported_time = 0;
@@ -80,15 +82,16 @@ impl MsTpm184PlatformImpl {
 
         // The system time can bounce around and that's OK as long as we don't allow
         // time to go backwards. When the time does appear to go backwards, set
-        // lastSystemTime to be the new value and then update the reported time.
+        // last_system_time to be the new value and then update the reported time.
         if now < *last_reported_time {
-            *last_reported_time = now;
+            *last_system_time = now;
         }
         *last_reported_time = (*last_reported_time + now).wrapping_sub(*last_system_time);
         *last_system_time = now;
+        now = *last_reported_time;
 
-        // The code above produces a timeNow that is similar to the value returned
-        // by Clock(). The difference is that timeNow does not max out, and it is
+        // The code above produces a now that is similar to the value returned
+        // by Clock(). The difference is that now does not max out, and it is
         // at a ms. rate rather than at a CLOCKS_PER_SEC rate. The code below
         // uses that value and does the rate adjustment on the time value.
         // If there is no difference in time, then skip all the computations
@@ -135,47 +138,45 @@ impl MsTpm184PlatformImpl {
     }
 
     fn clock_rate_adjust(&mut self, adjustment: i32) {
-        // v1.84 renamed _plat__ClockAdjustRate -> _plat__ClockRateAdjust and
-        // changed its argument from an absolute tick delta to a small enum
-        // (_plat__ClockAdjustStep): ±1 = FINE, ±2 = MEDIUM, ±3 = COARSE.
+        const PLAT_TPM_CLOCK_ADJUST_COARSE_SLOWER: i32 = -3;
+        const PLAT_TPM_CLOCK_ADJUST_MEDIUM_SLOWER: i32 = -2;
+        const PLAT_TPM_CLOCK_ADJUST_FINE_SLOWER: i32 = -1;
+        const PLAT_TPM_CLOCK_ADJUST_FINE_FASTER: i32 = 1;
+        const PLAT_TPM_CLOCK_ADJUST_MEDIUM_FASTER: i32 = 2;
+        const PLAT_TPM_CLOCK_ADJUST_COARSE_FASTER: i32 = 3;
+
+        const CLOCK_ADJUST_COARSE: i32 = 300;
+        const CLOCK_ADJUST_MEDIUM: i32 = 30;
+        const CLOCK_ADJUST_FINE: i32 = 1;
+
         let tick_delta = match adjustment {
-            -3 => -CLOCK_ADJUST_COARSE,
-            -2 => -CLOCK_ADJUST_MEDIUM,
-            -1 => -CLOCK_ADJUST_FINE,
-            1 => CLOCK_ADJUST_FINE,
-            2 => CLOCK_ADJUST_MEDIUM,
-            3 => CLOCK_ADJUST_COARSE,
-            _ => return, // ignore invalid values
+            // slower increases the divisor
+            PLAT_TPM_CLOCK_ADJUST_COARSE_SLOWER => CLOCK_ADJUST_COARSE,
+            PLAT_TPM_CLOCK_ADJUST_MEDIUM_SLOWER => CLOCK_ADJUST_MEDIUM,
+            PLAT_TPM_CLOCK_ADJUST_FINE_SLOWER => CLOCK_ADJUST_FINE,
+            // faster decreases the divisor
+            PLAT_TPM_CLOCK_ADJUST_FINE_FASTER => -CLOCK_ADJUST_FINE,
+            PLAT_TPM_CLOCK_ADJUST_MEDIUM_FASTER => -CLOCK_ADJUST_MEDIUM,
+            PLAT_TPM_CLOCK_ADJUST_COARSE_FASTER => -CLOCK_ADJUST_COARSE,
+            _ => 0,
         };
 
-        self.state.clock.adjust_rate = ((self.state.clock.adjust_rate as i32) + tick_delta).clamp(
-            (CLOCK_NOMINAL as i32) - CLOCK_ADJUST_LIMIT,
-            (CLOCK_NOMINAL as i32) + CLOCK_ADJUST_LIMIT,
-        ) as u32;
+        // The clock tolerance is +/-15% (4500 counts)
+        // Allow some guard band (16.7%)
+        const CLOCK_ADJUST_LIMIT: i32 = 5000;
+        const CLOCK_ADJUST_LIMIT_LOW: u32 = CLOCK_NOMINAL.strict_sub_signed(CLOCK_ADJUST_LIMIT);
+        const CLOCK_ADJUST_LIMIT_HIGH: u32 = CLOCK_NOMINAL.strict_add_signed(CLOCK_ADJUST_LIMIT);
+
+        self.state.clock.adjust_rate = self
+            .state
+            .clock
+            .adjust_rate
+            .strict_add_signed(tick_delta)
+            .clamp(CLOCK_ADJUST_LIMIT_LOW, CLOCK_ADJUST_LIMIT_HIGH);
     }
 }
 
 mod c_api {
-    // NOTE: The commented out functions are only ever called from the simulator,
-    // and as such, they really shouldn't have been specified as part of the the
-    // platform interface...
-
-    // #[unsafe(no_mangle)]
-    // pub unsafe extern "C" fn _plat__TimerReset() {
-    //     platform!().timer_reset()
-    // }
-
-    // #[unsafe(no_mangle)]
-    // pub unsafe extern "C" fn _plat__TimerRestart() {
-    //     platform!().timer_restart()
-    // }
-
-    //
-    // #[unsafe(no_mangle)]
-    // pub unsafe extern "C" fn _plat__RealTime() -> u64 {
-    //     platform!().real_time()
-    // }
-
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
     pub unsafe extern "C" fn _plat__TimerRead() -> u64 {
