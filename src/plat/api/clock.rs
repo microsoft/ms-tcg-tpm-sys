@@ -13,7 +13,7 @@ use super::super::MsTpm184PlatformImpl;
 /// that the nominal clock rate used to drive the hardware clock is 30 MHz. The
 /// adjustment rates are used to determine the conversion of the hardware ticks to
 /// internal hardware clock value. In practice, we would expect that there would be
-/// a hardware register will accumulated mS. It would be incremented by the output
+/// a hardware register with accumulated mS. It would be incremented by the output
 /// of a pre-scaler. The pre-scaler would divide the ticks from the clock by some
 /// value that would compensate for the difference between clock time and real time.
 /// The code here does the emulation of this function.
