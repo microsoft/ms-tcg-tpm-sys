@@ -11,4 +11,4 @@
 
 #define VENDOR_COMMAND_ARRAY_COUNT (0)
 
-#define vendorCommandDispatch ((const VendorDispatchId[0]){{}})
+#define vendorCommandDispatch ((const VendorDispatchId[1]){{0}})

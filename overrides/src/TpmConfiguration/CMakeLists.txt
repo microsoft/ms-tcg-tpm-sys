@@ -112,11 +112,6 @@ install(FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/TpmConfiguration/VendorCommands/CommandAttributeData_s_commandAttributes.inl
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/TpmConfiguration/VendorCommands)
 
-install(FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/TpmConfiguration/VendorCommands/prototypes/Vendor_TCG_Test_fp.h
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/TpmConfiguration/VendorCommands/prototypes)
-
-
 # LAST: create the targets.cmake file for this package
 export_targets_cmake_file(${PROJECT_NAME})
 

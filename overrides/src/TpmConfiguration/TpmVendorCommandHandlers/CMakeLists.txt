@@ -34,7 +34,7 @@ target_include_directories(TpmVendorCommands_Handlers PRIVATE
 
 
 target_sources(TpmVendorCommands_Handlers PRIVATE
-    Vendor_TCG_Test.c
+    Empty.c
 )
 
 # create install and export information for downstream projects to use

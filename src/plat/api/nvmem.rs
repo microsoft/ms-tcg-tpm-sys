@@ -10,7 +10,7 @@ use crate::error::Error;
 use super::super::MsTpm185PlatformImpl;
 
 /// The size of the non-volatile memory.
-pub const NV_MEMORY_SIZE: usize = 0x8000;
+pub const NV_MEMORY_SIZE: usize = 131072;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct NvState {

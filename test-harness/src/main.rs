@@ -114,7 +114,7 @@ fn extract_res(res: &[u8]) -> (u16, u32, String) {
 }
 
 fn send_cmd(platform: &mut MsTpm185Platform, cmd_name: &str, cmd: &mut [u8]) -> Vec<u8> {
-    let mut res = vec![0; 4096];
+    let mut res = vec![0; 8192];
 
     platform.execute_command(cmd, &mut res).unwrap();
 
