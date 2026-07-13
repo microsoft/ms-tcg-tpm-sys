@@ -9,7 +9,7 @@ use super::super::MsTpm185PlatformImpl;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct CancelState {
-    pub flag: bool,
+    flag: bool,
 }
 
 impl CancelState {
@@ -38,9 +38,4 @@ mod c_api {
     pub unsafe extern "C" fn _plat__IsCanceled() -> i32 {
         platform!().is_canceled() as i32
     }
-
-    // NOTE: _plat__SetCancel and _plat__ClearCancel were only ever called by
-    // the upstream simulator. Cancellation is now driven from Rust via
-    // MsTpm185Platform::set_cancel_flag, which calls the underlying
-    // set_cancel()/clear_cancel() methods directly.
 }

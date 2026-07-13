@@ -98,12 +98,12 @@ impl MsTpm185Platform {
     ) -> Result<MsTpm185Platform, Error> {
         tracing::trace!("Initializing TPM platform...");
 
-        let mut maybe_platform = PLATFORM.try_lock().unwrap();
+        let mut maybe_platform = PLATFORM.try_lock().map_err(|_| Error::AlreadyInitialized)?;
 
-        match &mut *maybe_platform {
+        let platform = match &mut *maybe_platform {
             Some(_platform) => return Err(Error::AlreadyInitialized),
             None => {
-                let platform = match &init_kind {
+                let new_platform = match &init_kind {
                     InitKind::ColdInit => {
                         let mut platform =
                             MsTpm185PlatformImpl::new(callbacks, api::nvmem::NV_MEMORY_SIZE);
@@ -121,17 +121,16 @@ impl MsTpm185Platform {
                         platform
                     }
                 };
-                *maybe_platform = Some(platform);
+                maybe_platform.insert(new_platform)
             }
-        }
+        };
 
-        tracing::trace!("TPM platform initialized");
+        tracing::trace!("TPM platform initialized, initializing TPM library...");
 
         // now that the platform layer has been set up, we can call into the TPM lib
         // itself to prep the TPM.
-        tracing::trace!("Initializing TPM library...");
 
-        maybe_platform.as_mut().unwrap().signal_power_on()?;
+        platform.signal_power_on()?;
 
         // Make sure to drop the mutex guard, as the TPM library will call back into the
         // platform, and Rust's std mutex is not reentrant!
@@ -153,8 +152,9 @@ impl MsTpm185Platform {
 
         // SAFETY: the nvram state has been manufactured (either by loading an existing
         // nvram blob, or through TPM_Manufacture), and has been powered on.
-        unsafe { ffi::_TPM_Init() }
-        tracing::trace!("_TPM_Init Completed");
+        unsafe {
+            ffi::_TPM_Init();
+        }
 
         tracing::info!("TPM library initialized");
 
@@ -390,7 +390,7 @@ impl MsTpm185PlatformImpl {
 
 /// This function is never called but is present to ensure openssl-sys is linked
 /// in, which ensures that libcrypto is linked in, which ensures that the C code
-/// in `overrides` can reference the crypto primitives.
+/// can reference the crypto primitives.
 ///
 /// This is the least bad way we could find to ensure this. If we find a better
 /// way, then this should be removed.
