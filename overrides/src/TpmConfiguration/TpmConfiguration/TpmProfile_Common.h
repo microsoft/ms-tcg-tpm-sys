@@ -42,6 +42,7 @@
 
 #define     SM4_128                     (NO  * ALG_SM4)
 
+// CHANGED_FROM_DEFAULT
 #define ALG_CAMELLIA                ALG_NO
 
 #define     CAMELLIA_128                (YES * ALG_CAMELLIA)
@@ -109,6 +110,25 @@
 #define     ECC_CURVE_448                   (NO * ALG_ECC)
 
 //***********************************************
+// Defines for ML-KEM
+//***********************************************
+
+#define ALG_MLKEM                           ALG_YES
+#define     MLKEM_512                       (YES * ALG_MLKEM)
+#define     MLKEM_768                       (YES * ALG_MLKEM)
+#define     MLKEM_1024                      (YES * ALG_MLKEM)
+
+//***********************************************
+// Defines for ML-DSA
+//***********************************************
+
+#define ALG_MLDSA                           ALG_YES
+#define     MLDSA_44                        (YES * ALG_MLDSA)
+#define     MLDSA_65                        (YES * ALG_MLDSA)
+#define     MLDSA_87                        (YES * ALG_MLDSA)
+#define     MLDSA_EXT_MU                    (YES * ALG_MLDSA)
+
+//***********************************************
 // Defines for Hash/XOF Algorithms
 //***********************************************
 #define ALG_MGF1                            ALG_YES
@@ -154,7 +174,7 @@
 //***********************************************
 // Defines controlling ACT
 //***********************************************
-#define ACT_SUPPORT                         NO
+#define ACT_SUPPORT                         YES
 #define RH_ACT_0                                (YES * ACT_SUPPORT)
 #define RH_ACT_1                                ( NO * ACT_SUPPORT)
 #define RH_ACT_2                                ( NO * ACT_SUPPORT)
@@ -165,7 +185,7 @@
 #define RH_ACT_7                                ( NO * ACT_SUPPORT)
 #define RH_ACT_8                                ( NO * ACT_SUPPORT)
 #define RH_ACT_9                                ( NO * ACT_SUPPORT)
-#define RH_ACT_A                                (YES * ACT_SUPPORT)
+#define RH_ACT_A                                ( NO * ACT_SUPPORT)
 #define RH_ACT_B                                ( NO * ACT_SUPPORT)
 #define RH_ACT_C                                ( NO * ACT_SUPPORT)
 #define RH_ACT_D                                ( NO * ACT_SUPPORT)
@@ -174,6 +194,8 @@
 
 // number of vendor properties, must currently be 1.
 #define MAX_VENDOR_PROPERTY                 (1)
+// max size of a TPM2B_VENDOR_PROPERTY
+#define MAX_VENDOR_PROPERTY_2B_SIZE (512)
 
 //***********************************************
 // Enable VENDOR_PERMANENT_AUTH_HANDLE?
@@ -191,12 +213,14 @@
 //***********************************************
 // Buffer Sizes based on implementation
 //***********************************************
+// NOTE:
 // When using PC CRB, the page size for both commands and
 // control registers is 4k.  The command buffer starts at
 // offset 0x80, so the net size available is:
-#define  MAX_COMMAND_SIZE               (4096-0x80)
-#define  MAX_RESPONSE_SIZE              (4096-0x80)
-
+// PQC will overrun these sizes, so systems targeting PC CRB
+// need to use the new chunked CRB interface in PC Client PTP 1.07+
+#define  MAX_COMMAND_SIZE               (8192)
+#define  MAX_RESPONSE_SIZE              (8192)
 //***********************************************
 // Vendor Info
 //***********************************************
@@ -209,6 +233,7 @@
 //***********************************************
 // Defines controlling Firmware- and SVN-limited objects
 //***********************************************
+// CHANGED_FROM_DEFAULT
 #define FW_LIMITED_SUPPORT                    NO
 #define SVN_LIMITED_SUPPORT                   NO
 
@@ -220,13 +245,11 @@
 // "external NV" that is stored in the same place as "internal NV."
 // NOTE: enabling this doesn't necessarily mean that the expanded
 // (external-NV-specific) attributes are supported.
-#define EXTERNAL_NV                           NO
+#define EXTERNAL_NV                           YES
 
 //***********************************************
 // Defines controlling secure channel functionality
 //***********************************************
-// This flag enables support for PolicyTransportSPDM.
-// See CC_PolicyTransportSPDM.
-#define SEC_CHANNEL_SUPPORT                   NO
+#define SEC_CHANNEL_SUPPORT                   YES
 
 #endif // _TPM_PROFILE_COMMON_H_

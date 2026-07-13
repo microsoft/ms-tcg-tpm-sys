@@ -8,6 +8,18 @@ use std::path::PathBuf;
 // corresponds to path within git submodule.
 const SRC_PATH: &str = "./TPM/TPMCmd/";
 
+const TPM_CRYPTO_LIBRARIES: &[&str] = &[
+    "Tpm_CryptoLib_BnMath_Ossl",
+    "Tpm_CryptoLib_Random_RandRef",
+    "Tpm_CryptoLib_Kdf_KdfRef",
+    "Tpm_CryptoLib_Math_TpmBigNum",
+    "Tpm_CryptoLib_RSA_RsaRef",
+    "Tpm_CryptoLib_ECC_EccRef",
+    "Tpm_CryptoLib_MLKEM_Ossl",
+    "Tpm_CryptoLib_MLDSA_Ossl",
+    "Tpm_CryptoLib_Common",
+];
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // users can link against pre-built libs if they don't want to use the
     // version included in-tree
@@ -16,8 +28,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("cargo:rustc-link-search=native={}", var.to_string_lossy());
             println!("cargo:rustc-link-lib=static=run_command");
             println!("cargo:rustc-link-lib=static=Tpm_CoreLib");
-            println!("cargo:rustc-link-lib=static=Tpm_CryptoLib_Math_Ossl");
-            println!("cargo:rustc-link-lib=static=Tpm_CryptoLib_TpmBigNum");
+            for library in TPM_CRYPTO_LIBRARIES {
+                println!("cargo:rustc-link-lib=static:+whole-archive={library}");
+            }
             return Ok(());
         }
         None => compile_tpm()?,
@@ -36,6 +49,7 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     // `RunCommand.c` contains setjmp/longjmp code, and must be compiled in
     // separately. The non-longjmp mode of the TPM is not fully tested, so we
     // rely on the longjmp mode.
+    // TODO: Can we use the non-longjmp mode?
     let run_command_path = manifest_dir.join("src/plat/RunCommand.c");
     cc::Build::new()
         .file(&run_command_path)
@@ -50,6 +64,25 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     // include paths as the core library, so the struct layouts match.
     let tpm_src_root = manifest_dir.join(SRC_PATH).join("tpm");
     let runtime_state_path = manifest_dir.join("overrides/src/runtime_state.c");
+    println!("cargo:rerun-if-changed={}", runtime_state_path.display());
+    let openssl_include_dir = PathBuf::from(
+        env("DEP_OPENSSL_INCLUDE").ok_or("openssl-sys did not provide its include directory")?,
+    );
+
+    let lib_dir = cmake::Config::new(SRC_PATH)
+        // We only want the core library
+        .define("Tpm_BuildOption_LibOnly", "1")
+        .define("CMAKE_C_STANDARD_INCLUDE_DIRECTORIES", &openssl_include_dir)
+        // Set crypto backend
+        .define("cryptoLib_Symmetric", "Ossl")
+        .define("cryptoLib_Hash", "Ossl")
+        .define("cryptoLib_BnMath", "Ossl")
+        .define("cryptoLib_Math", "TpmBigNum")
+        .define("cryptoLib_RSA", "RsaRef")
+        .define("cryptoLib_ECC", "EccRef")
+        .register_dep("openssl")
+        .define("user_TpmConfiguration_Dir", &tpm_config_dir)
+        .build();
 
     cc::Build::new()
         .file(&runtime_state_path)
@@ -58,57 +91,41 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
         .include(tpm_src_root.join("include/private/prototypes"))
         .include(tpm_src_root.join("include/platform_interface/Tpm_Platform_Interface"))
         .include(tpm_src_root.join("include/platform_interface/Tpm_Platform_Interface/prototypes"))
-        .include(tpm_src_root.join("cryptolibs/TpmBigNum/include"))
+        .include(tpm_src_root.join("cryptolibs/implementations/TpmBigNum/include"))
         .include(tpm_src_root.join("cryptolibs/common/include"))
-        .include(tpm_src_root.join("cryptolibs/Ossl/include"))
+        .include(tpm_src_root.join("cryptolibs/interfaces"))
+        .include(tpm_src_root.join("cryptolibs/implementations/Ossl/include"))
+        .include(tpm_src_root.join("cryptolibs/implementations/RandRef/include"))
+        .include(tpm_src_root.join("cryptolibs/implementations/KdfRef/include"))
+        .include(&openssl_include_dir)
         .include(&tpm_config_dir)
         .define("BN_MATH_LIB", "Ossl")
         .define("HASH_LIB", "Ossl")
+        .define("KDF_LIB", "KdfRef")
         .define("MATH_LIB", "TpmBigNum")
+        .define("MLDSA_LIB", "Ossl")
+        .define("MLKEM_LIB", "Ossl")
+        .define("RAND_LIB", "RandRef")
         .define("SYM_LIB", "Ossl")
+        .define("RSA_LIB", "RsaRef")
+        .define("ECC_LIB", "EccRef")
         .compile("runtime_state");
-
-    // The TPM submodule has a version check for OpenSSL <= 3.6.0, however
-    // 3.6.* is compatible with its requirements, so we relax the version check.
-    let ossl_compat = manifest_dir.join("overrides/src/ossl_version_compat.h");
-    println!("cargo:rerun-if-changed={}", ossl_compat.display());
-    let ossl_version_override = if std::env::var("CARGO_CFG_TARGET_ENV").unwrap() == "msvc" {
-        format!("/FI{}", ossl_compat.display())
-    } else {
-        format!("-include {}", ossl_compat.display())
-    };
-
-    let lib_dir = cmake::Config::new(SRC_PATH)
-        // We only want the core library
-        .define("Tpm_BuildOption_LibOnly", "1")
-        // Set crypto backend
-        .define("cryptoLib_Symmetric", "Ossl")
-        .define("cryptoLib_Hash", "Ossl")
-        .define("cryptoLib_BnMath", "Ossl")
-        .define("cryptoLib_Math", "TpmBigNum")
-        .register_dep("openssl")
-        .cflag(ossl_version_override)
-        .define("user_TpmConfiguration_Dir", tpm_config_dir)
-        .build();
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     fs_err::copy(
         lib_dir.join("lib").join("libTpm_CoreLib.a"),
         out_dir.join("libTpm_CoreLib.a"),
     )?;
-    fs_err::copy(
-        lib_dir.join("lib").join("libTpm_CryptoLib_Math_Ossl.a"),
-        out_dir.join("libTpm_CryptoLib_Math_Ossl.a"),
-    )?;
-    fs_err::copy(
-        lib_dir.join("lib").join("libTpm_CryptoLib_TpmBigNum.a"),
-        out_dir.join("libTpm_CryptoLib_TpmBigNum.a"),
-    )?;
+    for library in TPM_CRYPTO_LIBRARIES {
+        let archive = format!("lib{library}.a");
+        fs_err::copy(lib_dir.join("lib").join(&archive), out_dir.join(archive))?;
+    }
 
     // Cargo will pick up some static libraries because we have functions with
     // the `#[link(name = "...")]` attribute. However it won't pick up these.
-    println!("cargo:rustc-link-lib=static=Tpm_CryptoLib_Math_Ossl");
-    println!("cargo:rustc-link-lib=static=Tpm_CryptoLib_TpmBigNum");
+    for library in TPM_CRYPTO_LIBRARIES {
+        println!("cargo:rustc-link-lib=static:+whole-archive={library}");
+    }
 
     Ok(())
 }

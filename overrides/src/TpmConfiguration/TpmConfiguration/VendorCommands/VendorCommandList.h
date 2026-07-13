@@ -10,3 +10,5 @@
 #define CC_Vendor_TCG_Test CC_NO
 
 #define VENDOR_COMMAND_ARRAY_COUNT (0)
+
+#define vendorCommandDispatch ((const VendorDispatchId[0]){{}})

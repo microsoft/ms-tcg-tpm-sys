@@ -78,7 +78,7 @@ typedef struct tag_TPM_RUNTIME_STATE_ENTRY
     //
     // Pointer to a variable.
     //
-    const void *pbRuntimeVariable;
+    void *pbRuntimeVariable;
 
     //
     // Variable size.
@@ -191,7 +191,7 @@ int INJECTED_GetRuntimeState(
     pHeader->Revision = s_RuntimeStateRevision;
     pHeader->VariableCount = ARRAY_SIZE(s_TpmRuntimeVariables);
 
-    const char *pRuntimeState = (const char *)(pHeader + 1);
+    char *pRuntimeState = (char *)(pHeader + 1);
 
     for (uint32_t i = 0; i < ARRAY_SIZE(s_TpmRuntimeVariables); i++)
     {

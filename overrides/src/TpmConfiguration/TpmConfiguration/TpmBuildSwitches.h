@@ -49,35 +49,33 @@
 // macros will make sure that it is set correctly. A simulated TPM would include a
 // Virtual TPM. The interfaces for a Virtual TPM should be modified from the standard
 // ones in the Simulator project.
+// CHANGED_FROM_DEFAULT
 #define SIMULATION                  NO
 
 // ENABLE_TPM_DEBUG_PRINT enables arbitrary string printing.
 // enables the TPM_DEBUG_PRINT macro to route debugging strings
 // to the _plat_debug_out function
-#define ENABLE_TPM_DEBUG_PRINT      NO
+#define ENABLE_TPM_DEBUG_PRINT      (YES * SIMULATION)
 
 //  ENABLE_TPM_DEBUG_TRACE enables code tracing macros - depends on TPM_DEBUG_PRINT
-#define ENABLE_TPM_DEBUG_TRACE      NO
+#define ENABLE_TPM_DEBUG_TRACE      (NO  * ENABLE_TPM_DEBUG_PRINT)
 
 //  ENABLE_CRYPTO_DEBUG enables printing of actual crypto values. This is entirely insecure.
-#define ENABLE_CRYPTO_DEBUG         NO
+#define ENABLE_CRYPTO_DEBUG         (YES * ENABLE_TPM_DEBUG_PRINT)
 
 // The CRYPTO_LIB_REPORTING switch allows the TPM to report its
 // crypto library implementation, e.g., at simulation startup.
-#define CRYPTO_LIB_REPORTING        NO
+#define CRYPTO_LIB_REPORTING        (YES * SIMULATION)
 
 // If doing debug, can set the DRBG to print out the intermediate test values.
 // Before enabling this, make sure that the dbgDumpMemBlock() function
 // has been added someplace (preferably, somewhere in CryptRand.c)
-#define DRBG_DEBUG_PRINT            NO
-
-// This define is used to control the debug for the CertifyX509 command.
-#define CERTIFYX509_DEBUG           NO
+#define DRBG_DEBUG_PRINT            (NO  * DEBUG)
 
 // This provides fixed seeding of the RNG when doing debug on a simulator. This
 // should allow consistent results on test runs as long as the input parameters
 // to the functions remains the same.
-#define USE_DEBUG_RNG               NO
+#define USE_DEBUG_RNG               (NO  * DEBUG)
 
 ////////////////////////////////////////////////////////////////
 // RSA DEBUG OPTIONS
@@ -85,14 +83,14 @@
 
 // Enable the instrumentation of the sieve process. This is used to tune the sieve
 // variables.
-#define RSA_INSTRUMENT              NO
+#define RSA_INSTRUMENT              (NO  * DEBUG)
 
 // Enables use of the key cache. Default is YES
-#define USE_RSA_KEY_CACHE           NO
+#define USE_RSA_KEY_CACHE           (NO  * DEBUG)
 
 // Enables use of a file to store the key cache values so that the TPM will start
 // faster during debug. Default for this is YES
-#define USE_KEY_CACHE_FILE          NO
+#define USE_KEY_CACHE_FILE          (NO  * DEBUG)
 
 ////////////////////////////////////////////////////////////////
 // TEST OPTIONS
@@ -102,6 +100,7 @@
 // ability of the platform library to force failure mode while leaving the rest
 // of the TPM behavior alone.  Useful for testing when the full set of options
 // controlled by SIMULATION may not be desired.
+// CHANGED_FROM_DEFAULT
 #define ALLOW_FORCE_FAILURE_MODE    NO
 
 ////////////////////////////////////////////////////////////////
@@ -155,10 +154,8 @@
 // Implementation alternatives - don't  change external behavior
 ////////////////////////////////////////////////////////////////
 // does the target system have longjmp support, AND we want to use it?
+// CHANGED_FROM_DEFAULT
 #define LONGJMP_SUPPORTED           YES
-
-// This define is used to enable the new table-driven marshaling code.
-#define TABLE_DRIVEN_MARSHAL        NO
 
 // Enable the generation of RSA primes using a sieve.
 #define RSA_KEY_SIEVE               YES
@@ -181,6 +178,7 @@
 // defined, then it is assumed that the timer will change at any time so the
 // nonce should be a random number kept in RAM. When it is not defined, then the
 // timer only stops during power outages.
+// CHANGED_FROM_DEFAULT
 #define CLOCK_STOPS                 YES
 
 // Indicate if the implementation is going to give lockout time credit for time up to
