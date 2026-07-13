@@ -110,7 +110,7 @@ the effort over at <https://github.com/tpm-rs/tpm-rs>.
 ### Supported TCG TPM versions
 
 At this time, the only supported version of `TrustedComputingGroup/TPM` that
-this crate can compile + link against is v1.84 (pinned via the `TPM/`
+this crate can compile + link against is v1.85 (pinned via the `TPM/`
 submodule).
 
 In the future, this crate may be updated to support compiling + linking against

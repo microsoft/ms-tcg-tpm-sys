@@ -4,7 +4,7 @@
 name = "ms-tcg-tpm-sys"
 edition = "2024"
 license = "MIT"
-description = "Rust bindings to v1.84 of the TCG TPM"
+description = "Rust bindings to v1.85 of the TCG TPM"
 readme = "README.md"
 categories = ["cryptography", "external-ffi-bindings"]
 

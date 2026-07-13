@@ -57,13 +57,13 @@ static const uint64_t s_RuntimeStateHeaderMagic = 0x545354524D505456;
 //
 // Increment this revision on every change to the number or type of global static variables used by the TPM engine.
 //
-// Revision 4 (v1.84 update):
-//  - g_platformUniqueDetails removed: the v1.84 replacement g_platformUniqueAuth
+// Revision 4 (v1.85 update):
+//  - g_platformUniqueDetails removed: the v1.85 replacement g_platformUniqueAuth
 //    only exists when VENDOR_PERMANENT_AUTH_ENABLED == YES, which our build
 //    disables.
 //  - g_inFailureMode, g_forceFailureMode, s_failLine, s_failCode removed:
 //    failure-mode state is now owned by the platform layer (Rust) and is
-//    serialized separately via MsTpm184PlatformState.
+//    serialized separately via MsTpm185PlatformState.
 //  - s_selfHealTimer / s_lockoutTimer removed: they're now gated by
 //    `#if !ACCUMULATE_SELF_HEAL_TIMER` in Global.h. Our build sets
 //    ACCUMULATE_SELF_HEAL_TIMER == YES, so neither global exists.
@@ -106,7 +106,7 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         {(char *)&g_prevOrderlyState, sizeof(g_prevOrderlyState)},
         {(char *)&g_nvOk, sizeof(g_nvOk)},
         {(char *)&g_NvStatus, sizeof(g_NvStatus)},
-        // g_platformUniqueAuth (v1.84) / g_platformUniqueDetails (older) is
+        // g_platformUniqueAuth (v1.85) / g_platformUniqueDetails (older) is
         // only declared when VENDOR_PERMANENT_AUTH_ENABLED == YES. Our build
         // disables it (see TpmProfile_Common.h), so there's no such global to
         // save/restore.
@@ -143,7 +143,7 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         {(char *)&s_oldestSavedSession, sizeof(s_oldestSavedSession)},
         {(char *)&s_freeSessionSlots, sizeof(s_freeSessionSlots)},
         // Failure-mode state (g_inFailureMode, g_forceFailureMode, s_failLine,
-        // s_failCode) used to live in the TPM core library, but in v1.84 it
+        // s_failCode) used to live in the TPM core library, but in v1.85 it
         // moved to the platform layer. The Rust platform layer owns this state
         // and serializes it separately.
         //
