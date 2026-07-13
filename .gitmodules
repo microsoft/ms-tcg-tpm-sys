@@ -1,3 +1,3 @@
 [submodule "TPM"]
 	path = TPM
-	url = https://github.com/TrustedComputingGroup/TPM-Internal.git
+	url = https://microsoft@dev.azure.com/microsoft/TPM/_git/TPM-Internal

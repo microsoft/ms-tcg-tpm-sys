@@ -10,6 +10,7 @@ const SRC_PATH: &str = "./TPM/TPMCmd/";
 
 const TPM_CRYPTO_LIBRARIES: &[&str] = &[
     "Tpm_CryptoLib_BnMath_Ossl",
+    "Tpm_CryptoLib_Symmetric_Ossl",
     "Tpm_CryptoLib_Random_RandRef",
     "Tpm_CryptoLib_Kdf_KdfRef",
     "Tpm_CryptoLib_Math_TpmBigNum",
@@ -73,6 +74,8 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
         // We only want the core library
         .define("Tpm_BuildOption_LibOnly", "1")
         .define("CMAKE_C_STANDARD_INCLUDE_DIRECTORIES", &openssl_include_dir)
+        .define("SYMCRYPT_INCLUDE_DIR", "foo")
+        .define("SYMCRYPT_LIB_DIR", "foo")
         // Set crypto backend
         .define("cryptoLib_Symmetric", "Ossl")
         .define("cryptoLib_Hash", "Ossl")
