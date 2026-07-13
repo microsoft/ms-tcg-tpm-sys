@@ -7,7 +7,7 @@ use std::convert::TryInto;
 use serde::Deserialize;
 use serde::Serialize;
 
-use super::super::MsTpm184PlatformImpl;
+use super::super::MsTpm185PlatformImpl;
 
 const CLOCK_NOMINAL: u32 = 30000;
 const CLOCK_ADJUST_LIMIT: i32 = 5000;
@@ -52,13 +52,13 @@ impl ClockState {
     }
 }
 
-impl MsTpm184PlatformImpl {
+impl MsTpm185PlatformImpl {
     pub fn timer_reset(&mut self) {
         self.state.clock = ClockState::new();
     }
 }
 
-impl MsTpm184PlatformImpl {
+impl MsTpm185PlatformImpl {
     // Ported over from ms-tps-20-re/TPMCmd/Platform/src/Clock.c
     fn timer_read(&mut self) -> u64 {
         let ClockState {
@@ -135,7 +135,7 @@ impl MsTpm184PlatformImpl {
     }
 
     fn clock_rate_adjust(&mut self, adjustment: i32) {
-        // v1.84 renamed _plat__ClockAdjustRate -> _plat__ClockRateAdjust and
+        // v1.85 renamed _plat__ClockAdjustRate -> _plat__ClockRateAdjust and
         // changed its argument from an absolute tick delta to a small enum
         // (_plat__ClockAdjustStep): ±1 = FINE, ±2 = MEDIUM, ±3 = COARSE.
         let tick_delta = match adjustment {

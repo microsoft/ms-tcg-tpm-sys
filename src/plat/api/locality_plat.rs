@@ -5,7 +5,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-use super::super::MsTpm184PlatformImpl;
+use super::super::MsTpm185PlatformImpl;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct LocalityState {
@@ -18,7 +18,7 @@ impl LocalityState {
     }
 }
 
-impl MsTpm184PlatformImpl {
+impl MsTpm185PlatformImpl {
     fn locality_get(&mut self) -> u8 {
         self.state.locality.locality
     }
@@ -32,5 +32,5 @@ mod c_api {
     }
 
     // NOTE: _plat__LocalitySet was only ever called by the upstream simulator
-    // and is not part of the v1.84 platform interface that the core library uses.
+    // and is not part of the v1.85 platform interface that the core library uses.
 }

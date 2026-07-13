@@ -118,7 +118,7 @@ mod c_api {
     }
 
     /// Fill in the spec-version capability struct (`SPEC_CAPABILITY_VALUE`).
-    /// Values mirror what the upstream reference platform reports for v1.84.
+    /// Values mirror what the upstream reference platform reports for v1.85.
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
     pub unsafe extern "C" fn _plat_GetSpecCapabilityValue(return_data: *mut SpecCapabilityValue) {
@@ -130,8 +130,8 @@ mod c_api {
             *return_data = SpecCapabilityValue {
                 // From part 1 of the TPM spec.
                 tpm_spec_level: 0,
-                // From part 2 of the TPM spec (v1.84, 2025-03-20).
-                tpm_spec_version: 184,
+                // From part 2 of the TPM spec (v1.85, 2025-03-20).
+                tpm_spec_version: 185,
                 tpm_spec_year: 2025,
                 tpm_spec_day_of_year: 79,
                 // From the PC Client Platform TPM Profile Specification.

@@ -7,7 +7,7 @@ use serde::Serialize;
 
 use crate::error::Error;
 
-use super::super::MsTpm184PlatformImpl;
+use super::super::MsTpm185PlatformImpl;
 
 /// The size of the non-volatile memory.
 pub const NV_MEMORY_SIZE: usize = 0x8000;
@@ -56,7 +56,7 @@ enum NvAvailability {
     RateLimit = 2,
 }
 
-impl MsTpm184PlatformImpl {
+impl MsTpm185PlatformImpl {
     pub fn nv_enable_from_blob(&mut self, blob: &[u8]) -> Result<(), Error> {
         if self.state.nvmem.is_init {
             return Err(NvError::AlreadyInitialized.into());
@@ -73,7 +73,7 @@ impl MsTpm184PlatformImpl {
     }
 }
 
-impl MsTpm184PlatformImpl {
+impl MsTpm185PlatformImpl {
     pub fn nv_enable(&mut self) -> Result<(), Error> {
         if !self.state.nvmem.is_init {
             tracing::debug!("calling __plat_NvEnable before `nv_enable_from_blob` was called");
@@ -233,7 +233,7 @@ mod c_api {
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace", ret)]
     pub unsafe extern "C" fn _plat__GetNvReadyState() -> i32 {
-        // v1.84 renamed _plat__IsNvAvailable -> _plat__GetNvReadyState.
+        // v1.85 renamed _plat__IsNvAvailable -> _plat__GetNvReadyState.
         // Return values are unchanged: 0 = NV_READY, 1 = NV_WRITEFAILURE,
         // 2 = NV_RATE_LIMIT.
         platform!().is_nv_available() as i32
@@ -269,7 +269,7 @@ mod c_api {
         size: u32,
         data: *mut c_void,
     ) -> i32 {
-        // v1.84 renamed _plat__NvIsDifferent -> _plat__NvGetChangedStatus and
+        // v1.85 renamed _plat__NvIsDifferent -> _plat__NvGetChangedStatus and
         // added a third return value:
         //   NV_HAS_CHANGED      ( 1) the NV location differs from the test value
         //   NV_IS_SAME          ( 0) the NV location matches the test value

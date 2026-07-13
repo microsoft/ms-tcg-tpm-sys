@@ -5,7 +5,7 @@
 
 use ms_tcg_tpm_sys::DynResult;
 use ms_tcg_tpm_sys::InitKind;
-use ms_tcg_tpm_sys::MsTpm184Platform;
+use ms_tcg_tpm_sys::MsTpm185Platform;
 use ms_tcg_tpm_sys::PlatformCallbacks;
 use std::convert::TryInto;
 use std::fs;
@@ -88,7 +88,7 @@ fn main() {
         }
     };
 
-    let mut platform = MsTpm184Platform::initialize(
+    let mut platform = MsTpm185Platform::initialize(
         Box::new(TestPlatformCallbacks {
             file,
             time: Instant::now(),
@@ -113,7 +113,7 @@ fn extract_res(res: &[u8]) -> (u16, u32, String) {
     (tag, code, res_str)
 }
 
-fn send_cmd(platform: &mut MsTpm184Platform, cmd_name: &str, cmd: &mut [u8]) -> Vec<u8> {
+fn send_cmd(platform: &mut MsTpm185Platform, cmd_name: &str, cmd: &mut [u8]) -> Vec<u8> {
     let mut res = vec![0; 4096];
 
     platform.execute_command(cmd, &mut res).unwrap();
@@ -129,7 +129,7 @@ fn send_cmd(platform: &mut MsTpm184Platform, cmd_name: &str, cmd: &mut [u8]) -> 
 }
 
 /// Sends a few basic commands to ensure basic TPM engine functionality works.
-fn smoke_test_tpm(platform: &mut MsTpm184Platform) {
+fn smoke_test_tpm(platform: &mut MsTpm185Platform) {
     // send startup command
     let mut startup_cmd = [
         0x80, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x01, 0x44, 0x00, 0x00,

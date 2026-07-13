@@ -5,7 +5,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-use super::super::MsTpm184PlatformImpl;
+use super::super::MsTpm185PlatformImpl;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct CancelState {
@@ -18,7 +18,7 @@ impl CancelState {
     }
 }
 
-impl MsTpm184PlatformImpl {
+impl MsTpm185PlatformImpl {
     fn is_canceled(&self) -> bool {
         self.state.cancel.flag
     }
@@ -41,6 +41,6 @@ mod c_api {
 
     // NOTE: _plat__SetCancel and _plat__ClearCancel were only ever called by
     // the upstream simulator. Cancellation is now driven from Rust via
-    // MsTpm184Platform::set_cancel_flag, which calls the underlying
+    // MsTpm185Platform::set_cancel_flag, which calls the underlying
     // set_cancel()/clear_cancel() methods directly.
 }

@@ -2,10 +2,10 @@
 
 //! PlatformACT.c
 
-use super::super::MsTpm184PlatformImpl;
+use super::super::MsTpm185PlatformImpl;
 
 // TODO: model ACTs using `PlatformCallbacks`?
-impl MsTpm184PlatformImpl {
+impl MsTpm185PlatformImpl {
     fn act_get_implemented(&mut self, _act: u32) -> bool {
         true // must report true, or else TPM_Manufacture fails
     }
@@ -75,6 +75,6 @@ mod c_api {
     }
 
     // NOTE: _plat__ACT_GetPending and _plat__ACT_Tick were only ever called by
-    // the upstream simulator and are not part of the v1.84 platform interface
+    // the upstream simulator and are not part of the v1.85 platform interface
     // that the core library uses.
 }

@@ -4,9 +4,9 @@
 
 use crate::error::Error;
 
-use super::super::MsTpm184PlatformImpl;
+use super::super::MsTpm185PlatformImpl;
 
-impl MsTpm184PlatformImpl {
+impl MsTpm185PlatformImpl {
     fn get_entropy(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
         self.callbacks
             .get_crypt_random(buf)

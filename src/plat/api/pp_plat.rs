@@ -2,9 +2,9 @@
 
 //! PPPlat.c
 
-use super::super::MsTpm184PlatformImpl;
+use super::super::MsTpm185PlatformImpl;
 
-impl MsTpm184PlatformImpl {
+impl MsTpm185PlatformImpl {
     fn physical_presence_asserted(&mut self) -> bool {
         false
     }
@@ -19,5 +19,5 @@ mod c_api {
 
     // NOTE: _plat__Signal_PhysicalPresenceOn / _plat__Signal_PhysicalPresenceOff
     // were only ever called by the upstream simulator and are not part of the
-    // v1.84 platform interface that the core library uses.
+    // v1.85 platform interface that the core library uses.
 }
