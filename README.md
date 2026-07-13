@@ -36,16 +36,7 @@ following pre-built static libraries from the specified directory:
   based `RunCommand` entrypoint (built from `src/plat/RunCommand.c`).
 - `libruntime_state.a` - C hooks for vTPM-style live save/restore (built from
   `overrides/src/runtime_state.c`).
-- `libTpm_CoreLib.a`
-- `libTpm_CryptoLib_BnMath_Ossl.a`
-- `libTpm_CryptoLib_Common.a`
-- `libTpm_CryptoLib_ECC_EccRef.a`
-- `libTpm_CryptoLib_Kdf_KdfRef.a`
-- `libTpm_CryptoLib_MLDSA_Ossl.a`
-- `libTpm_CryptoLib_MLKEM_Ossl.a`
-- `libTpm_CryptoLib_Math_TpmBigNum.a`
-- `libTpm_CryptoLib_RSA_RsaRef.a`
-- `libTpm_CryptoLib_Random_RandRef.a`
+- `libTpm_*.a` - libraries produced by the TPM reference library.
 
 Building OpenSSL may be a bit more tricky. See the `openssl` crate
 documentation for instructions on how to build + link against OpenSSL:
