@@ -61,7 +61,6 @@ impl MsTpm185PlatformImpl {
         self.state.clock = ClockState::new();
     }
 
-impl MsTpm185PlatformImpl {
     // Ported over from ms-tps-20-re/TPMCmd/Platform/src/Clock.c
     fn timer_read(&mut self) -> u64 {
         let ClockState {
