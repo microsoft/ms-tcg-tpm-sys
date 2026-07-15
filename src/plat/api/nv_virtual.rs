@@ -7,7 +7,7 @@
 //! Rust platform stores everything in regular NV, so we report "no virtual
 //! indices" and the rest of these entry points are unreachable.
 //!
-//! Note: these symbols are unconditional in v1.84 — the core library calls
+//! Note: these symbols are unconditional in v1.85 — the core library calls
 //! them through a runtime check (`if (_plat__IsNvVirtualIndex(...)) { ... }`),
 //! not behind a `#if EXTERNAL_NV` guard. So even with `EXTERNAL_NV NO`, the
 //! symbols still need to exist for linking.

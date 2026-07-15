@@ -36,9 +36,7 @@ following pre-built static libraries from the specified directory:
   based `RunCommand` entrypoint (built from `src/plat/RunCommand.c`).
 - `libruntime_state.a` - C hooks for vTPM-style live save/restore (built from
   `overrides/src/runtime_state.c`).
-- `libTpm_CoreLib.a`
-- `libTpm_CryptoLib_Math_Ossl.a`
-- `libTpm_CryptoLib_TpmBigNum.a`
+- `libTpm_*.a` - libraries produced by the TPM reference library.
 
 Building OpenSSL may be a bit more tricky. See the `openssl` crate
 documentation for instructions on how to build + link against OpenSSL:
@@ -80,10 +78,9 @@ cargo run -p test-harness -- ./tpm.nvmem
   `user_TpmConfiguration_Dir` to customize the TPM feature set, command list,
   and platform profile.
 - `build.rs` - Build script that compiles the TPM C codebase via CMake (or
-  links against pre-built libraries when `TCG_TPM_LIB_DIR` is set). Only the
-  `Tpm_CoreLib`, `Tpm_CryptoLib_Math_Ossl`, and `Tpm_CryptoLib_TpmBigNum`
-  targets are built; the upstream C `Platform/` library is replaced by the
-  Rust platform layer in `src/plat/`.
+  links against pre-built libraries when `TCG_TPM_LIB_DIR` is set). The
+  upstream C `Platform/` library is replaced by the Rust platform layer in
+  `src/plat/`.
 - `TPM/` - Git submodule pointing at upstream `TrustedComputingGroup/TPM`.
 - `test-harness/` - A small sample binary that initializes the TPM, sends a
   few commands, and persists state to an on-disk `.nvmem` blob.
@@ -104,7 +101,7 @@ the effort over at <https://github.com/tpm-rs/tpm-rs>.
 ### Supported TCG TPM versions
 
 At this time, the only supported version of `TrustedComputingGroup/TPM` that
-this crate can compile + link against is v1.84 (pinned via the `TPM/`
+this crate can compile + link against is v1.85 (pinned via the `TPM/`
 submodule).
 
 In the future, this crate may be updated to support compiling + linking against

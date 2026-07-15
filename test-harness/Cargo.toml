@@ -5,7 +5,7 @@ name = "test-harness"
 edition = "2024"
 
 [features]
-default = ["openssl"]
+default = ["openssl", "vendored"]
 
 openssl = ["ms-tcg-tpm-sys/openssl"]
 vendored = ["ms-tcg-tpm-sys/vendored"]

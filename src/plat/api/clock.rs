@@ -7,7 +7,7 @@ use std::convert::TryInto;
 use serde::Deserialize;
 use serde::Serialize;
 
-use super::super::MsTpm184PlatformImpl;
+use super::super::MsTpm185PlatformImpl;
 
 /// CLOCK_NOMINAL is the number of hardware ticks per ms. A value of 30000 means
 /// that the nominal clock rate used to drive the hardware clock is 30 MHz. The
@@ -55,12 +55,13 @@ impl ClockState {
     }
 }
 
-impl MsTpm184PlatformImpl {
+impl MsTpm185PlatformImpl {
     /// Reset the timer.
     pub fn timer_reset(&mut self) {
         self.state.clock = ClockState::new();
     }
 
+    // Ported over from ms-tps-20-re/TPMCmd/Platform/src/Clock.c
     fn timer_read(&mut self) -> u64 {
         let ClockState {
             adjust_rate,

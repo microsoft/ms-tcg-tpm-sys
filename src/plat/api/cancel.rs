@@ -5,7 +5,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-use super::super::MsTpm184PlatformImpl;
+use super::super::MsTpm185PlatformImpl;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct CancelState {
@@ -18,7 +18,7 @@ impl CancelState {
     }
 }
 
-impl MsTpm184PlatformImpl {
+impl MsTpm185PlatformImpl {
     fn is_canceled(&self) -> bool {
         self.state.cancel.flag
     }

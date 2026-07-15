@@ -19,7 +19,7 @@ pub(crate) mod api;
 // done to enforce serialized access to the platform's various methods. The
 // underlying C library is single-threaded, and will never call multiple
 // platform methods at the same time. In addition, by marking
-// `MsTpm184Platform` as `!Sync`, we can leverage the Rust type system to
+// `MsTpm185Platform` as `!Sync`, we can leverage the Rust type system to
 // statically guarantee that Rust code will only ever invoke platform methods on
 // a single thread.
 //
@@ -39,7 +39,7 @@ pub(crate) mod api;
 // access the global platform. Moreover, this is not supposed to be "high
 // performance" code, so the minor overhead of going through a mutex isn't
 // important.
-static PLATFORM: LazyLock<Mutex<Option<MsTpm184PlatformImpl>>> = LazyLock::new(|| Mutex::new(None));
+static PLATFORM: LazyLock<Mutex<Option<MsTpm185PlatformImpl>>> = LazyLock::new(|| Mutex::new(None));
 
 // Defined in `RunCommand.c`
 #[link(name = "run_command", kind = "static")]
@@ -63,31 +63,31 @@ mod ffi {
 /// Serde de/serializable representation of the ms-tcg-tpm-sys library's runtime
 /// state (both core C library runtime, and Rust platform runtime)
 #[derive(Clone, Serialize, Deserialize)]
-pub struct MsTpm184RuntimeState {
-    tpmlib_state: tpmlib_state::MsTpm184LibraryState,
-    platform_state: MsTpm184PlatformState,
+pub struct MsTpm185RuntimeState {
+    tpmlib_state: tpmlib_state::MsTpm185LibraryState,
+    platform_state: MsTpm185PlatformState,
 }
 
 /// A handle which encapsulates the logical ownership of the global platform
 /// singleton.
 ///
-/// Only a single instance of `MsTpm184Platform` can be live at any given
-/// time. If [`MsTpm184Platform::initialize`] is called while an instance of
-/// `MsTpm184Platform` is still live, it will return an
+/// Only a single instance of `MsTpm185Platform` can be live at any given
+/// time. If [`MsTpm185Platform::initialize`] is called while an instance of
+/// `MsTpm185Platform` is still live, it will return an
 /// [`Error::AlreadyInitialized`].
 ///
-/// When `MsTpm184Platform` is dropped, it will uninitialize the platform,
-/// allowing a subsequent call to [`MsTpm184Platform::initialize`] to succeed.
+/// When `MsTpm185Platform` is dropped, it will uninitialize the platform,
+/// allowing a subsequent call to [`MsTpm185Platform::initialize`] to succeed.
 #[non_exhaustive]
 #[derive(Debug)]
-pub struct MsTpm184Platform {
+pub struct MsTpm185Platform {
     _not_sync: PhantomData<*const ()>,
 }
 
 // SAFETY: the underlying C library is single threaded, and doesn't use TLS
-unsafe impl Send for MsTpm184Platform {}
+unsafe impl Send for MsTpm185Platform {}
 
-impl MsTpm184Platform {
+impl MsTpm185Platform {
     /// Initialize the TPM library with the given implementation-specific
     /// callbacks.
     ///
@@ -95,7 +95,7 @@ impl MsTpm184Platform {
     pub fn initialize(
         callbacks: Box<dyn PlatformCallbacks + Send>,
         init_kind: InitKind<'_>,
-    ) -> Result<MsTpm184Platform, Error> {
+    ) -> Result<MsTpm185Platform, Error> {
         tracing::trace!("Initializing TPM platform...");
 
         let mut maybe_platform = PLATFORM.try_lock().map_err(|_| Error::AlreadyInitialized)?;
@@ -106,17 +106,17 @@ impl MsTpm184Platform {
                 let new_platform = match &init_kind {
                     InitKind::ColdInit => {
                         let mut platform =
-                            MsTpm184PlatformImpl::new(callbacks, api::nvmem::NV_MEMORY_SIZE);
+                            MsTpm185PlatformImpl::new(callbacks, api::nvmem::NV_MEMORY_SIZE);
                         platform.nv_enable()?;
                         platform
                     }
                     InitKind::ColdInitWithSize(size) => {
-                        let mut platform = MsTpm184PlatformImpl::new(callbacks, *size);
+                        let mut platform = MsTpm185PlatformImpl::new(callbacks, *size);
                         platform.nv_enable()?;
                         platform
                     }
                     InitKind::ColdInitWithPersistentState { nvmem_blob } => {
-                        let mut platform = MsTpm184PlatformImpl::new(callbacks, nvmem_blob.len());
+                        let mut platform = MsTpm185PlatformImpl::new(callbacks, nvmem_blob.len());
                         platform.nv_enable_from_blob(nvmem_blob)?;
                         platform
                     }
@@ -158,7 +158,7 @@ impl MsTpm184Platform {
 
         tracing::info!("TPM library initialized");
 
-        Ok(MsTpm184Platform {
+        Ok(MsTpm185Platform {
             _not_sync: PhantomData,
         })
     }
@@ -292,7 +292,7 @@ impl MsTpm184Platform {
 
     /// Save the current state into an opaque saved-state blob.
     pub fn save_state(&self) -> Vec<u8> {
-        let state = MsTpm184RuntimeState {
+        let state = MsTpm185RuntimeState {
             tpmlib_state: tpmlib_state::get_runtime_state(),
             platform_state: PLATFORM
                 .try_lock()
@@ -307,7 +307,7 @@ impl MsTpm184Platform {
 
     /// Restore the TPM from a previously-saved blob.
     pub fn restore_state(&mut self, state: Vec<u8>) -> Result<(), Error> {
-        let state: MsTpm184RuntimeState =
+        let state: MsTpm185RuntimeState =
             postcard::from_bytes(&state).map_err(Error::FailedPlatformRestore)?;
 
         PLATFORM
@@ -337,7 +337,7 @@ impl MsTpm184Platform {
     }
 }
 
-impl Drop for MsTpm184Platform {
+impl Drop for MsTpm185Platform {
     fn drop(&mut self) {
         let mut platform = PLATFORM.try_lock().unwrap();
         platform.as_mut().unwrap().signal_power_off();
@@ -346,7 +346,7 @@ impl Drop for MsTpm184Platform {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-struct MsTpm184PlatformState {
+struct MsTpm185PlatformState {
     cancel: api::cancel::CancelState,
     locality: api::locality_plat::LocalityState,
     clock: api::clock::ClockState,
@@ -354,9 +354,9 @@ struct MsTpm184PlatformState {
     nvmem: api::nvmem::NvState,
 }
 
-impl MsTpm184PlatformState {
-    fn new(size: usize) -> MsTpm184PlatformState {
-        MsTpm184PlatformState {
+impl MsTpm185PlatformState {
+    fn new(size: usize) -> MsTpm185PlatformState {
+        MsTpm185PlatformState {
             cancel: api::cancel::CancelState::new(),
             locality: api::locality_plat::LocalityState::new(),
             clock: api::clock::ClockState::new(),
@@ -366,24 +366,24 @@ impl MsTpm184PlatformState {
     }
 }
 
-struct MsTpm184PlatformImpl {
+struct MsTpm185PlatformImpl {
     callbacks: Box<dyn PlatformCallbacks + Send>,
-    state: MsTpm184PlatformState,
+    state: MsTpm185PlatformState,
 }
 
-impl MsTpm184PlatformImpl {
-    fn new(callbacks: Box<dyn PlatformCallbacks + Send>, size: usize) -> MsTpm184PlatformImpl {
-        MsTpm184PlatformImpl {
+impl MsTpm185PlatformImpl {
+    fn new(callbacks: Box<dyn PlatformCallbacks + Send>, size: usize) -> MsTpm185PlatformImpl {
+        MsTpm185PlatformImpl {
             callbacks,
-            state: MsTpm184PlatformState::new(size),
+            state: MsTpm185PlatformState::new(size),
         }
     }
 
-    fn restore_runtime_state(&mut self, state: MsTpm184PlatformState) {
+    fn restore_runtime_state(&mut self, state: MsTpm185PlatformState) {
         self.state = state;
     }
 
-    fn get_runtime_state(&self) -> MsTpm184PlatformState {
+    fn get_runtime_state(&self) -> MsTpm185PlatformState {
         self.state.clone()
     }
 }

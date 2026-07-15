@@ -5,7 +5,7 @@
 #define _TPM_PROFILE_MISC_H_
 
 // YES & NO defined by TpmBuildSwitches.h
-#if(YES != 1 || NO != 0)
+#if (YES != 1 || NO != 0)
 #  error YES or NO incorrectly set
 #endif
 
@@ -18,22 +18,22 @@
 #define NUM_LOCALITIES             5
 #define MAX_HANDLE_NUM             3
 #define MAX_ACTIVE_SESSIONS        64
-#define MAX_LOADED_SESSIONS        16
-#define MAX_SESSION_NUM            16
-#define MAX_LOADED_OBJECTS         16
-#define MIN_EVICT_OBJECTS          7
+#define MAX_LOADED_SESSIONS        3
+#define MAX_SESSION_NUM            3
+#define MAX_LOADED_OBJECTS         3
+#define MIN_EVICT_OBJECTS          9
 #define NUM_POLICY_PCR_GROUP       1
 #define NUM_AUTHVALUE_PCR_GROUP    1
-#define MAX_CONTEXT_SIZE           2264
+#define MAX_CONTEXT_SIZE           4344
 #define MAX_DIGEST_BUFFER          1024
-#define MAX_NV_INDEX_SIZE          2048
+#define MAX_NV_INDEX_SIZE          8500
 #define MAX_NV_BUFFER_SIZE         1024
-#define MAX_CAP_BUFFER             1024
-#define NV_MEMORY_SIZE             32768
+#define MAX_CAP_BUFFER             3072
+#define NV_MEMORY_SIZE             131072
 #define MIN_COUNTER_INDICES        8
 #define NUM_STATIC_PCR             16
 #define MAX_ALG_LIST_SIZE          64
-#define PRIMARY_SEED_SIZE          64
+#define PRIMARY_SEED_SIZE          32
 #define CONTEXT_ENCRYPT_ALGORITHM  AES
 #define NV_CLOCK_UPDATE_INTERVAL   22
 #define NUM_POLICY_PCR             1
@@ -41,10 +41,8 @@
 #define ORDERLY_BITS               8
 #define MAX_SYM_DATA               128
 #define MAX_RNG_ENTROPY_SIZE       64
-#define RAM_INDEX_SPACE            1024
+#define RAM_INDEX_SPACE            512
 #define ENABLE_PCR_NO_INCREMENT    YES
-
-#define SIZE_OF_X509_SERIAL_NUMBER 20
 
 // amount of space the platform can provide in PERSISTENT_DATA during
 // manufacture
