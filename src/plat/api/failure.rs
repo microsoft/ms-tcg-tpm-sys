@@ -5,34 +5,86 @@
 //! Platform failure-mode state. The core library calls into the platform to
 //! record and query failure mode (e.g. `FAIL(...)` macros eventually invoke
 //! `_plat__Fail`, and the library then queries `_plat__InFailureMode`).
-//!
-//! The Rust wrapper owns the `_plat__Fail`/longjmp path inside
-//! `src/plat/RunCommand.c`, so here we only need to expose enough state for
-//! the core library to ask whether we are in failure mode.
+
+use serde::Deserialize;
+use serde::Serialize;
+
+use super::super::MsTpm185PlatformImpl;
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct FailureState {
+    failure_code: u32,
+    failure_location: u64,
+    in_failure_mode: bool,
+}
+
+impl FailureState {
+    pub fn new() -> FailureState {
+        FailureState {
+            failure_code: 0,
+            failure_location: 0,
+            in_failure_mode: false,
+        }
+    }
+}
+
+impl MsTpm185PlatformImpl {
+    pub(super) fn reset_failure(&mut self) {
+        self.state.failure = FailureState::new();
+    }
+
+    fn fail(&mut self, location_code: u64, failure_code: i32) {
+        if !self.state.failure.in_failure_mode {
+            self.state.failure.failure_code = failure_code as u32;
+            self.state.failure.failure_location = location_code;
+            self.state.failure.in_failure_mode = true;
+        }
+    }
+
+    fn in_failure_mode(&self) -> bool {
+        self.state.failure.in_failure_mode
+    }
+
+    fn failure_code(&self) -> u32 {
+        self.state.failure.failure_code
+    }
+
+    fn failure_location(&self) -> u64 {
+        self.state.failure.failure_location
+    }
+}
 
 mod c_api {
+    /// Records the first failure reported by the TPM library.
+    #[unsafe(no_mangle)]
+    #[tracing::instrument(level = "trace", skip(_function))]
+    pub unsafe extern "C" fn _plat__Fail(
+        _function: *const std::ffi::c_char,
+        _line: i32,
+        location_code: u64,
+        failure_code: i32,
+    ) {
+        platform!().fail(location_code, failure_code);
+    }
+
     /// Indicates to the TPM library that a failure has occurred.
-    ///
-    /// We never enter failure mode from the Rust platform layer, so this
-    /// always returns `FALSE`.
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
     pub unsafe extern "C" fn _plat__InFailureMode() -> i32 {
-        // BOOL = int; FALSE = 0
-        0
+        platform!().in_failure_mode() as i32
     }
 
     /// Vendor-defined failure-reason code reported via TPM2_GetTestResult.
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
     pub unsafe extern "C" fn _plat__GetFailureCode() -> u32 {
-        0
+        platform!().failure_code()
     }
 
     /// Vendor-defined 64-bit location code reported via TPM2_GetTestResult.
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
     pub unsafe extern "C" fn _plat__GetFailureLocation() -> u64 {
-        0
+        platform!().failure_location()
     }
 }

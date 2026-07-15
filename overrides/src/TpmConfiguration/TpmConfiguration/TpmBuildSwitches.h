@@ -154,8 +154,7 @@
 // Implementation alternatives - don't  change external behavior
 ////////////////////////////////////////////////////////////////
 // does the target system have longjmp support, AND we want to use it?
-// CHANGED_FROM_DEFAULT
-#define LONGJMP_SUPPORTED           YES
+#define LONGJMP_SUPPORTED           NO
 
 // Enable the generation of RSA primes using a sieve.
 #define RSA_KEY_SIEVE               YES

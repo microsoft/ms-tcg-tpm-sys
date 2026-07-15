@@ -27,7 +27,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match env("TCG_TPM_LIB_DIR") {
         Some(var) => {
             println!("cargo:rustc-link-search=native={}", var.to_string_lossy());
-            println!("cargo:rustc-link-lib=static=run_command");
             println!("cargo:rustc-link-lib=static=Tpm_CoreLib");
             for library in TPM_CRYPTO_LIBRARIES {
                 println!("cargo:rustc-link-lib=static:+whole-archive={library}");
@@ -46,15 +45,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// and crypto backends.
 fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-
-    // `RunCommand.c` contains setjmp/longjmp code, and must be compiled in
-    // separately. The non-longjmp mode of the TPM is not fully tested, so we
-    // rely on the longjmp mode.
-    // TODO: Can we use the non-longjmp mode?
-    let run_command_path = manifest_dir.join("src/plat/RunCommand.c");
-    cc::Build::new()
-        .file(&run_command_path)
-        .compile("run_command");
 
     let tpm_config_dir = manifest_dir.join("overrides/src/TpmConfiguration");
     println!("cargo:rerun-if-changed={}", tpm_config_dir.display());
