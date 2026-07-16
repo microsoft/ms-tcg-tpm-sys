@@ -41,22 +41,17 @@ pub(crate) mod api;
 // important.
 static PLATFORM: LazyLock<Mutex<Option<MsTpm185PlatformImpl>>> = LazyLock::new(|| Mutex::new(None));
 
-// Defined in `RunCommand.c`
-#[link(name = "run_command", kind = "static")]
-unsafe extern "C" {
-    fn RunCommand(
-        requestSize: u32,
-        request: *mut u8,
-        responseSize: *mut u32,
-        response: *mut *mut u8,
-    );
-}
-
 mod ffi {
     #[link(name = "Tpm_CoreLib", kind = "static")]
     unsafe extern "C" {
         pub fn _TPM_Init();
         pub fn TPM_Manufacture(firstTime: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
+        pub fn ExecuteCommand(
+            requestSize: u32,
+            request: *mut u8,
+            responseSize: *mut u32,
+            response: *mut *mut u8,
+        );
     }
 }
 
@@ -213,7 +208,7 @@ impl MsTpm185Platform {
         let prev_response_ptr = response_ptr;
         // SAFETY: The request / response buffers point to valid Rust slices
         unsafe {
-            RunCommand(
+            ffi::ExecuteCommand(
                 request_size,
                 request_ptr,
                 &mut response_size,
@@ -348,20 +343,22 @@ impl Drop for MsTpm185Platform {
 #[derive(Clone, Serialize, Deserialize)]
 struct MsTpm185PlatformState {
     cancel: api::cancel::CancelState,
-    locality: api::locality_plat::LocalityState,
     clock: api::clock::ClockState,
-    power_plat: api::power_plat::PowerPlatState,
+    failure: api::failure::FailureState,
+    locality: api::locality_plat::LocalityState,
     nvmem: api::nvmem::NvState,
+    power_plat: api::power_plat::PowerPlatState,
 }
 
 impl MsTpm185PlatformState {
     fn new(size: usize) -> MsTpm185PlatformState {
         MsTpm185PlatformState {
             cancel: api::cancel::CancelState::new(),
-            locality: api::locality_plat::LocalityState::new(),
             clock: api::clock::ClockState::new(),
-            power_plat: api::power_plat::PowerPlatState::new(),
+            failure: api::failure::FailureState::new(),
+            locality: api::locality_plat::LocalityState::new(),
             nvmem: api::nvmem::NvState::new(size),
+            power_plat: api::power_plat::PowerPlatState::new(),
         }
     }
 }

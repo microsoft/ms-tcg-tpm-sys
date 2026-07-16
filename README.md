@@ -32,8 +32,6 @@ should be able to build it without issue.
 When `TCG_TPM_LIB_DIR` is set, the build script will instead link against the
 following pre-built static libraries from the specified directory:
 
-- `librun_command.a` - thin wrapper around the TPM library's setjmp/longjmp
-  based `RunCommand` entrypoint (built from `src/plat/RunCommand.c`).
 - `libruntime_state.a` - C hooks for vTPM-style live save/restore (built from
   `overrides/src/runtime_state.c`).
 - `libTpm_*.a` - libraries produced by the TPM reference library.
@@ -69,8 +67,6 @@ cargo run -p test-harness -- ./tpm.nvmem
   and the safe wrapper around the TPM library. The `plat::api` submodule
   implements the C `_plat__*` callbacks the TPM library expects (entropy, NV
   memory, clock, PCR init, locality, physical presence, etc.).
-- `src/plat/RunCommand.c` - C entrypoint that wraps the TPM library's
-  `RunCommand` with setjmp/longjmp, compiled separately into `librun_command.a`.
 - `overrides/src/runtime_state.c` - C hooks used to save / restore the live
   global state of the TPM library (used for vTPM-style live save/restore).
 - `overrides/src/TpmConfiguration/` - Header overrides (`TpmBuildSwitches.h`,
