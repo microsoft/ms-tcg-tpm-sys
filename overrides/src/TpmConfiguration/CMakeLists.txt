@@ -28,6 +28,14 @@ target_include_directories(${PROJECT_NAME}
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/TpmConfiguration>"
 )
 
+##########################################################
+# ms-tcg-tpm-sys customization
+# Inject the runtime-state hooks into Tpm_CoreLib so they inherit its build settings.
+target_sources(${PROJECT_NAME} INTERFACE
+    "$<BUILD_INTERFACE:$<$<STREQUAL:$<TARGET_PROPERTY:NAME>,Tpm_CoreLib>:${CMAKE_CURRENT_SOURCE_DIR}/../runtime_state.c>>"
+)
+##########################################################
+
 # MSVC: Warn on most things, and treat them as errors.
 set(MSVC_OPTIONS /WX /Wall)
 # enable minimal rebuild
