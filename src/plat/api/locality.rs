@@ -105,7 +105,7 @@ impl From<Locality> for u8 {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct LocalityState {
-    pub locality: u8,
+    locality: u8,
 }
 
 impl LocalityState {
