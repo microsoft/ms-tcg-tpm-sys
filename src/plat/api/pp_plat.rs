@@ -2,7 +2,7 @@
 
 //! PPPlat.c
 
-// TODO: model physical presence using `PlaformCallbacks`?
+// TODO: model physical presence using `PlatformCallbacks`?
 
 mod c_api {
     #[unsafe(no_mangle)]
