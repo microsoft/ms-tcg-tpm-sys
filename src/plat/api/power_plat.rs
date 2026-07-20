@@ -30,7 +30,6 @@ impl MsTpm185PlatformImpl {
 
     pub fn signal_power_off(&mut self) {
         self.nv_disable(false);
-        self.act_enable_ticks(false);
     }
 
     fn was_power_lost(&mut self) -> bool {
@@ -46,11 +45,4 @@ mod c_api {
     pub unsafe extern "C" fn _plat__WasPowerLost() -> i32 {
         platform!().was_power_lost() as i32
     }
-
-    // NOTE: _plat__Signal_PowerOn, _plat__Signal_PowerOff, and _plat__Signal_Reset
-    // were only ever called by the upstream simulator. Power transitions are now
-    // driven from Rust via MsTpm185Platform::{initialize,reset,drop}, which
-    // call signal_power_on() / signal_power_off() directly. Reset goes through
-    // MsTpm185Platform::reset which calls _TPM_Init explicitly outside the
-    // platform mutex.
 }
