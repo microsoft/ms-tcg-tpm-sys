@@ -23,7 +23,7 @@ const VENDOR_STRING_4: u32 = ascii4(b"r   ");
 const FIRMWARE_V1: u32 = 0x20200312;
 const FIRMWARE_V2: u32 = 0x00120003;
 
-// just the value the reference code has returned in the past.
+// Vendor TPM type. Matches the reference code's historical return value.
 const VENDOR_TPM_TYPE: u32 = 1;
 
 /// Mirror of the C `SPEC_CAPABILITY_VALUE` struct in
