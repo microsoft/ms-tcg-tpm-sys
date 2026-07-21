@@ -9,6 +9,15 @@ pub enum Error {
     AlreadyInitialized,
     /// Error when calling platform callback
     PlatformCallback(Box<dyn std::error::Error + Send + Sync>),
+    /// The entropy callback returned an invalid number of bytes
+    InvalidEntropyCallbackLength {
+        /// Size of the buffer passed to the callback
+        requested: usize,
+        /// Number of bytes the callback reported writing
+        returned: usize,
+    },
+    /// The continuous RNG test detected two equal consecutive blocks
+    EntropyHealthTestFailed,
     /// Error calling specified C API
     Ffi {
         /// The C function being called
@@ -39,6 +48,17 @@ impl fmt::Display for Error {
         match self {
             AlreadyInitialized => write!(f, "platform is already initialized"),
             PlatformCallback(e) => write!(f, "error when calling platform callback: {}", e),
+            InvalidEntropyCallbackLength {
+                requested,
+                returned,
+            } => write!(
+                f,
+                "entropy callback returned {returned} bytes for a {requested}-byte buffer"
+            ),
+            EntropyHealthTestFailed => write!(
+                f,
+                "continuous RNG test detected equal consecutive 32-bit blocks"
+            ),
             Ffi { function, error } => {
                 write!(
                     f,

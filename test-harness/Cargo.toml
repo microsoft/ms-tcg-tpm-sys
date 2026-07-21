@@ -11,6 +11,7 @@ openssl = ["ms-tcg-tpm-sys/openssl"]
 vendored = ["ms-tcg-tpm-sys/vendored"]
 
 [dependencies]
+getrandom = { version = "0.4", default-features = false }
 ms-tcg-tpm-sys = { path = "../", default-features = false }
 
 tracing = { version = "0.1", features = ["log"] }
