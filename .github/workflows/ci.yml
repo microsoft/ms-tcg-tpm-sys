@@ -20,26 +20,13 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  rustfmt:
-    name: rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install rustfmt
-        run: rustup component add rustfmt
-
-      - name: cargo fmt --check
-        run: cargo fmt --all --check
-
   rust:
-    name: ${{ matrix.task }} (${{ matrix.configuration.name }})
+    name: rust (${{ matrix.name }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        task: [clippy, test, doc]
-        configuration:
+        include:
           - name: openssl
             features: openssl,vendored
     steps:
@@ -71,35 +58,48 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install clippy
-        if: matrix.task == 'clippy'
-        run: rustup component add clippy
+      - name: Install Rust components
+        run: rustup component add clippy rustfmt
 
       - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake perl pkg-config
 
+      - name: cargo fmt --check
+        id: rustfmt
+        continue-on-error: true
+        run: cargo fmt --all --check
+
       - name: Clippy
-        if: matrix.task == 'clippy'
-        run: cargo clippy --locked --workspace --all-targets --no-default-features --features ${{ matrix.configuration.features }} -- -D warnings
+        id: clippy
+        continue-on-error: true
+        run: cargo clippy --locked --workspace --all-targets --no-default-features --features ${{ matrix.features }} -- -D warnings
 
       - name: Test
-        if: matrix.task == 'test'
-        run: cargo test --locked --workspace --no-default-features --features ${{ matrix.configuration.features }}
+        id: test
+        continue-on-error: true
+        run: cargo test --locked --workspace --no-default-features --features ${{ matrix.features }}
 
       - name: Run test-harness (cold init)
-        if: matrix.task == 'test'
+        id: cold_init
+        continue-on-error: true
         run: |
-          cargo run --locked -p test-harness --no-default-features --features ${{ matrix.configuration.features }} -- ./ci-tpm.nvmem
+          cargo run --locked -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem
 
       - name: Run test-harness (warm restore)
-        if: matrix.task == 'test'
+        id: warm_restore
+        continue-on-error: true
         run: |
-          cargo run --locked -p test-harness --no-default-features --features ${{ matrix.configuration.features }} -- ./ci-tpm.nvmem
+          cargo run --locked -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem
 
       - name: Doc
-        if: matrix.task == 'doc'
+        id: doc
+        continue-on-error: true
         env:
           RUSTDOCFLAGS: -D warnings
-        run: cargo doc --locked --workspace --no-deps --no-default-features --features ${{ matrix.configuration.features }}
+        run: cargo doc --locked --workspace --no-deps --no-default-features --features ${{ matrix.features }}
+
+      - name: Fail if any check failed
+        if: steps.rustfmt.outcome == 'failure' || steps.clippy.outcome == 'failure' || steps.test.outcome == 'failure' || steps.cold_init.outcome == 'failure' || steps.warm_restore.outcome == 'failure' || steps.doc.outcome == 'failure'
+        run: exit 1
