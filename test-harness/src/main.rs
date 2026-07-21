@@ -30,7 +30,7 @@ impl PlatformCallbacks for TestPlatformCallbacks {
 
     fn get_crypt_random(&mut self, buf: &mut [u8]) -> DynResult<usize> {
         tracing::info!("returning OS entropy into buf of len {}", buf.len());
-        getrandom::fill(buf).map_err(|error| std::io::Error::other(error.to_string()))?;
+        getrandom::fill(buf)?;
         Ok(buf.len())
     }
 
