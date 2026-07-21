@@ -29,7 +29,7 @@ impl MsTpm185PlatformImpl {
     }
 
     pub fn signal_power_off(&mut self) {
-        self.nv_disable(false);
+        self.nv_disable();
         self.act_enable_ticks(false);
     }
 
