@@ -32,13 +32,14 @@ jobs:
       - name: cargo fmt --check
         run: cargo fmt --all --check
 
-  clippy:
-    name: clippy (${{ matrix.name }})
+  rust:
+    name: ${{ matrix.task }} (${{ matrix.configuration.name }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
+        task: [clippy, test, doc]
+        configuration:
           - name: openssl
             features: openssl,vendored
     steps:
@@ -71,6 +72,7 @@ jobs:
           submodules: recursive
 
       - name: Install clippy
+        if: matrix.task == 'clippy'
         run: rustup component add clippy
 
       - name: Install build dependencies
@@ -79,106 +81,25 @@ jobs:
           sudo apt-get install -y cmake perl pkg-config
 
       - name: Clippy
-        run: cargo clippy --locked --workspace --all-targets --no-default-features --features ${{ matrix.features }} -- -D warnings
-
-  test:
-    name: test (${{ matrix.name }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: openssl
-            features: openssl,vendored
-    steps:
-      - name: Authenticate to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
-
-      - name: Get Azure DevOps access token
-        id: azure_devops_token
-        shell: bash
-        run: |
-          token="$(az account get-access-token \
-            --resource 499b84ac-1321-427f-aa17-267ca6975798 \
-            --query accessToken \
-            --output tsv)"
-          test -n "$token"
-          echo "::add-mask::$token"
-          printf 'token=%s\n' "$token" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout (with submodules)
-        uses: actions/checkout@v4
-        env:
-          GIT_CONFIG_COUNT: 1
-          GIT_CONFIG_KEY_0: http.https://microsoft@dev.azure.com/microsoft.extraheader
-          GIT_CONFIG_VALUE_0: "AUTHORIZATION: bearer ${{ steps.azure_devops_token.outputs.token }}"
-        with:
-          submodules: recursive
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake perl pkg-config
+        if: matrix.task == 'clippy'
+        run: cargo clippy --locked --workspace --all-targets --no-default-features --features ${{ matrix.configuration.features }} -- -D warnings
 
       - name: Test
-        run: cargo test --locked --workspace --no-default-features --features ${{ matrix.features }}
+        if: matrix.task == 'test'
+        run: cargo test --locked --workspace --no-default-features --features ${{ matrix.configuration.features }}
 
       - name: Run test-harness (cold init)
+        if: matrix.task == 'test'
         run: |
-          cargo run --locked -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem
+          cargo run --locked -p test-harness --no-default-features --features ${{ matrix.configuration.features }} -- ./ci-tpm.nvmem
 
       - name: Run test-harness (warm restore)
+        if: matrix.task == 'test'
         run: |
-          cargo run --locked -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem
-
-  doc:
-    name: doc (${{ matrix.name }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: openssl
-            features: openssl,vendored
-    steps:
-      - name: Authenticate to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
-
-      - name: Get Azure DevOps access token
-        id: azure_devops_token
-        shell: bash
-        run: |
-          token="$(az account get-access-token \
-            --resource 499b84ac-1321-427f-aa17-267ca6975798 \
-            --query accessToken \
-            --output tsv)"
-          test -n "$token"
-          echo "::add-mask::$token"
-          printf 'token=%s\n' "$token" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout (with submodules)
-        uses: actions/checkout@v4
-        env:
-          GIT_CONFIG_COUNT: 1
-          GIT_CONFIG_KEY_0: http.https://microsoft@dev.azure.com/microsoft.extraheader
-          GIT_CONFIG_VALUE_0: "AUTHORIZATION: bearer ${{ steps.azure_devops_token.outputs.token }}"
-        with:
-          submodules: recursive
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake perl pkg-config
+          cargo run --locked -p test-harness --no-default-features --features ${{ matrix.configuration.features }} -- ./ci-tpm.nvmem
 
       - name: Doc
+        if: matrix.task == 'doc'
         env:
           RUSTDOCFLAGS: -D warnings
-        run: cargo doc --locked --workspace --no-deps --no-default-features --features ${{ matrix.features }}
+        run: cargo doc --locked --workspace --no-deps --no-default-features --features ${{ matrix.configuration.features }}
