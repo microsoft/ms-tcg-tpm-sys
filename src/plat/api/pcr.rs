@@ -118,10 +118,12 @@ mod c_api {
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
     pub unsafe extern "C" fn _platPcr__GetPcrInitializationAttributes(pcr_number: u32) -> u32 {
-        if pcr_number >= NUM_PCRS {
-            return 0;
-        }
-        INIT_ATTRIBUTES[pcr_number as usize].into()
+        let idx = if pcr_number >= NUM_PCRS {
+            0
+        } else {
+            pcr_number as usize
+        };
+        INIT_ATTRIBUTES[idx].into()
     }
 
     /// True if `pcr_alg` should default to active in a new TPM.
