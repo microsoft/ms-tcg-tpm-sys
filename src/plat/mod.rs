@@ -330,6 +330,16 @@ impl MsTpm185Platform {
             platform.clear_cancel()
         }
     }
+
+    /// Set the locality assigned to subsequent TPM commands.
+    pub fn set_locality(&mut self, locality: crate::Locality) {
+        PLATFORM
+            .try_lock()
+            .unwrap()
+            .as_mut()
+            .expect("platform is initialized")
+            .locality_set(locality);
+    }
 }
 
 impl Drop for MsTpm185Platform {
@@ -345,7 +355,7 @@ struct MsTpm185PlatformState {
     cancel: api::cancel::CancelState,
     clock: api::clock::ClockState,
     failure: api::failure::FailureState,
-    locality: api::locality_plat::LocalityState,
+    locality: api::locality::LocalityState,
     nvmem: api::nvmem::NvState,
     power_plat: api::power_plat::PowerPlatState,
 }
@@ -356,7 +366,7 @@ impl MsTpm185PlatformState {
             cancel: api::cancel::CancelState::new(),
             clock: api::clock::ClockState::new(),
             failure: api::failure::FailureState::new(),
-            locality: api::locality_plat::LocalityState::new(),
+            locality: api::locality::LocalityState::new(),
             nvmem: api::nvmem::NvState::new(size),
             power_plat: api::power_plat::PowerPlatState::new(),
         }
