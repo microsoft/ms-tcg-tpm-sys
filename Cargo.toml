@@ -15,6 +15,7 @@ openssl = ["dep:openssl-sys"]
 vendored = ["openssl-sys?/vendored"]
 
 [dependencies]
+bitfield-struct = "0.13"
 openssl-sys = { version =  "0.9.117", optional = true }
 tracing = "0.1"
 
