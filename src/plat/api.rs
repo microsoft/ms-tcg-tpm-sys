@@ -15,7 +15,7 @@ pub mod clock;
 pub mod entropy;
 pub mod failure;
 pub mod init;
-pub mod locality_plat;
+pub mod locality;
 pub mod nv_virtual;
 pub mod nvmem;
 pub mod pcr;

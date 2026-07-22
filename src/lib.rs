@@ -12,6 +12,8 @@ pub use error::DynResult;
 pub use error::Error;
 pub use plat::MsTpm185Platform;
 pub use plat::MsTpm185RuntimeState;
+pub use plat::api::locality::ExtendedLocality;
+pub use plat::api::locality::Locality;
 pub use plat::api::nvmem::NV_MEMORY_SIZE;
 pub use plat::api::nvmem::NvError;
 
