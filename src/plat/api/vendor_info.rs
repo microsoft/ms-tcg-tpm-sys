@@ -11,29 +11,28 @@ const fn ascii4(s: &[u8; 4]) -> u32 {
     u32::from_be_bytes(*s)
 }
 
-// Vendor identity. Matches the legacy ms-tpm-20-ref-rs values used by the
-// Hyper-V / OpenVMM vTPM.
+// Vendor identity. Matches the legacy ms-tpm-20-ref-rs values.
 const MANUFACTURER: u32 = ascii4(b"MSFT");
 const VENDOR_STRING_1: u32 = ascii4(b"TPM ");
 const VENDOR_STRING_2: u32 = ascii4(b"Simu");
 const VENDOR_STRING_3: u32 = ascii4(b"lato");
 const VENDOR_STRING_4: u32 = ascii4(b"r   ");
 
-// Firmware version. Kept in sync with the historical Hyper-V vTPM values so
-// guests don't see a brand-new TPM after upgrade.
+// Firmware version. Same as ms-tpm-20-ref-rs.
+// TODO: Should we change these?
 const FIRMWARE_V1: u32 = 0x20200312;
 const FIRMWARE_V2: u32 = 0x00120003;
 
+// Vendor TPM type. Matches the reference code's historical return value.
 const VENDOR_TPM_TYPE: u32 = 1;
 
 /// Mirror of the C `SPEC_CAPABILITY_VALUE` struct in
-/// `tpm_to_platform_interface.h`. Pure POD, returned by reference.
+/// `tpm_to_platform_interface.h`.
 #[repr(C)]
 struct SpecCapabilityValue {
     tpm_spec_level: u32,
     tpm_spec_version: u32,
-    tpm_spec_year: u32,
-    tpm_spec_day_of_year: u32,
+    tpm_spec_errata: u32,
 
     platform_family: u32,
     platform_level: u32,
@@ -83,15 +82,14 @@ mod c_api {
 
     /// Current TPM firmware SVN. We do not implement SVN-limited objects
     /// (`SVN_LIMITED_SUPPORT NO` in TpmProfile_Common.h), but the core
-    /// library still queries this for `TPM_PT_FIRMWARE_SVN`.
+    /// library still queries this.
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
     pub unsafe extern "C" fn _plat__GetTpmFirmwareSvn() -> u16 {
         0
     }
 
-    /// Maximum SVN value the firmware can ever report. Returned via
-    /// `TPM_PT_FIRMWARE_MAX_SVN`.
+    /// Maximum SVN value the firmware can ever report.
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace")]
     pub unsafe extern "C" fn _plat__GetTpmFirmwareMaxSvn() -> u16 {
@@ -132,13 +130,12 @@ mod c_api {
                 tpm_spec_level: 0,
                 // From part 2 of the TPM spec (v1.85, 2025-03-20).
                 tpm_spec_version: 185,
-                tpm_spec_year: 2025,
-                tpm_spec_day_of_year: 79,
+                tpm_spec_errata: 0,
                 // From the PC Client Platform TPM Profile Specification.
                 platform_family: 1,
                 platform_level: 0,
-                // Encoded such that 0x0105 means version 1.05.
-                platform_revision: 0x105,
+                // Matching the reference library
+                platform_revision: 0x107,
                 platform_year: 0,
                 platform_day_of_year: 0,
             };
