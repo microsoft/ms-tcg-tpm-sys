@@ -14,7 +14,7 @@ pub const NV_MEMORY_SIZE: usize = 131072;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct NvState {
-    pub region: Vec<u8>,
+    region: Vec<u8>,
     pub is_init: bool,
 }
 
@@ -51,9 +51,9 @@ impl From<NvError> for Error {
 
 #[expect(dead_code)]
 enum NvAvailability {
-    Available = 0,
-    WriteFailure = 1,
-    RateLimit = 2,
+    Available = 0,    // NV_READY
+    WriteFailure = 1, // NV_WRITEFAILURE
+    RateLimit = 2,    // NV_RATE_LIMIT
 }
 
 impl MsTpm185PlatformImpl {
@@ -71,12 +71,11 @@ impl MsTpm185PlatformImpl {
 
         Ok(())
     }
-}
 
-impl MsTpm185PlatformImpl {
     pub fn nv_enable(&mut self) -> Result<(), Error> {
+        // This may be called after nv_enable_from_blob, so don't error if we're
+        // already initialized
         if !self.state.nvmem.is_init {
-            tracing::debug!("calling __plat_NvEnable before `nv_enable_from_blob` was called");
             self.state.nvmem.region = vec![0; self.nv_size()];
             self.state.nvmem.is_init = true;
         }
@@ -84,9 +83,7 @@ impl MsTpm185PlatformImpl {
         Ok(())
     }
 
-    pub fn nv_disable(&mut self, delete: bool) {
-        // `delete` is only ever used by the simulator code.
-        assert_eq!(delete, false);
+    pub fn nv_disable(&mut self) {
         self.state.nvmem.is_init = false;
     }
 
@@ -94,79 +91,35 @@ impl MsTpm185PlatformImpl {
         NvAvailability::Available
     }
 
-    fn nv_memory_read(&mut self, start_offset: usize, buf: &mut [u8]) -> Result<(), Error> {
+    fn nv_range(&mut self, start_offset: usize, len: usize) -> Result<&mut [u8], Error> {
         match self
             .state
             .nvmem
             .region
-            .get(start_offset..(start_offset + buf.len()))
+            .get_mut(start_offset..(start_offset + len))
         {
-            Some(region) => buf.copy_from_slice(region),
-            None => {
-                buf.fill(0);
-                return Err(NvError::InvalidAccess {
-                    start_offset,
-                    len: buf.len(),
-                }
-                .into());
-            }
+            Some(region) => Ok(region),
+            None => Err(NvError::InvalidAccess { start_offset, len }.into()),
         }
+    }
 
+    fn nv_memory_read(&mut self, start_offset: usize, buf: &mut [u8]) -> Result<(), Error> {
+        buf.copy_from_slice(self.nv_range(start_offset, buf.len())?);
         Ok(())
     }
 
     fn nv_is_different(&mut self, start_offset: usize, buf: &[u8]) -> Result<bool, Error> {
-        let is_different = match self
-            .state
-            .nvmem
-            .region
-            .get_mut(start_offset..(start_offset + buf.len()))
-        {
-            Some(region) => region != buf,
-            None => {
-                return Err(NvError::InvalidAccess {
-                    start_offset,
-                    len: buf.len(),
-                }
-                .into());
-            }
-        };
-
+        let is_different = self.nv_range(start_offset, buf.len())? != buf;
         Ok(is_different)
     }
 
     fn nv_memory_write(&mut self, start_offset: usize, buf: &[u8]) -> Result<(), Error> {
-        match self
-            .state
-            .nvmem
-            .region
-            .get_mut(start_offset..(start_offset + buf.len()))
-        {
-            Some(region) => region.copy_from_slice(buf),
-            None => {
-                return Err(NvError::InvalidAccess {
-                    start_offset,
-                    len: buf.len(),
-                }
-                .into());
-            }
-        }
-
+        self.nv_range(start_offset, buf.len())?.copy_from_slice(buf);
         Ok(())
     }
 
-    fn nv_memory_clear(&mut self, start: usize, size: usize) -> Result<(), Error> {
-        match self.state.nvmem.region.get_mut(start..(start + size)) {
-            Some(region) => region.fill(0),
-            None => {
-                return Err(NvError::InvalidAccess {
-                    start_offset: start,
-                    len: size,
-                }
-                .into());
-            }
-        }
-
+    fn nv_memory_clear(&mut self, start_offset: usize, size: usize) -> Result<(), Error> {
+        self.nv_range(start_offset, size)?.fill(0);
         Ok(())
     }
 
@@ -179,6 +132,14 @@ impl MsTpm185PlatformImpl {
         if source_offset + size > self.state.nvmem.region.len() {
             return Err(NvError::InvalidAccess {
                 start_offset: source_offset,
+                len: size,
+            }
+            .into());
+        }
+
+        if dest_offset + size > self.state.nvmem.region.len() {
+            return Err(NvError::InvalidAccess {
+                start_offset: dest_offset,
                 len: size,
             }
             .into());
@@ -206,18 +167,6 @@ impl MsTpm185PlatformImpl {
 mod c_api {
     use core::ffi::c_void;
 
-    // NOTE: The commented out functions are only ever called from the simulator,
-    // and as such, they really shouldn't have been specified as part of the the
-    // platform interface...
-
-    // #[unsafe(no_mangle)]
-    // pub unsafe extern "C" fn _plat__NvErrors(
-    //     recoverable: i32,
-    //     unrecoverable: i32
-    // ) {
-    //      platform!().nv_errors(recoverable != 0, unrecoverable != 0)
-    // }
-
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace", ret)]
     pub unsafe extern "C" fn _plat__NVEnable(plat_parameter: *mut c_void) -> i32 {
@@ -233,23 +182,23 @@ mod c_api {
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace", ret)]
     pub unsafe extern "C" fn _plat__GetNvReadyState() -> i32 {
-        // v1.85 renamed _plat__IsNvAvailable -> _plat__GetNvReadyState.
-        // Return values are unchanged: 0 = NV_READY, 1 = NV_WRITEFAILURE,
-        // 2 = NV_RATE_LIMIT.
         platform!().is_nv_available() as i32
     }
 
-    // NOTE: Why doesn't NvMemoryRead return a bool like NvMemoryWrite??
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__NvMemoryRead(start_offset: u32, size: u32, data: *mut c_void) {
+    pub unsafe extern "C" fn _plat__NvMemoryRead(
+        start_offset: u32,
+        size: u32,
+        data: *mut c_void,
+    ) -> i32 {
         assert!(!data.is_null());
 
         // SAFETY: caller ensures `data` and `size` are valid
         let buf = unsafe { core::slice::from_raw_parts_mut(data.cast(), size as usize) };
 
         match platform!().nv_memory_read(start_offset as usize, buf) {
-            Ok(()) => {}
+            Ok(()) => true as i32,
             Err(e) => {
                 tracing::error!(
                     "error calling _plat__NvMemoryRead(start_offset: {:#x?}, size: {:#x?}, data: {:?}): {}",
@@ -258,6 +207,7 @@ mod c_api {
                     data,
                     e
                 );
+                false as i32
             }
         }
     }
@@ -269,11 +219,6 @@ mod c_api {
         size: u32,
         data: *mut c_void,
     ) -> i32 {
-        // v1.85 renamed _plat__NvIsDifferent -> _plat__NvGetChangedStatus and
-        // added a third return value:
-        //   NV_HAS_CHANGED      ( 1) the NV location differs from the test value
-        //   NV_IS_SAME          ( 0) the NV location matches the test value
-        //   NV_INVALID_LOCATION (-1) the NV location is invalid (triggers failure mode)
         const NV_INVALID_LOCATION: i32 = -1;
 
         assert!(!data.is_null());
@@ -323,12 +268,11 @@ mod c_api {
         }
     }
 
-    // NOTE: Why doesn't NvMemoryClear return a bool??
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__NvMemoryClear(start: u32, size: u32) {
+    pub unsafe extern "C" fn _plat__NvMemoryClear(start: u32, size: u32) -> i32 {
         match platform!().nv_memory_clear(start as usize, size as usize) {
-            Ok(()) => {}
+            Ok(()) => true as i32,
             Err(e) => {
                 tracing::error!(
                     "error calling _plat__NvMemoryClear(start: {:#x?}, size: {:#x?}): {}",
@@ -336,20 +280,24 @@ mod c_api {
                     size,
                     e
                 );
+                false as i32
             }
         }
     }
 
-    // NOTE: Why doesn't NvMemoryClear return a bool??
     #[unsafe(no_mangle)]
     #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__NvMemoryMove(source_offset: u32, dest_offset: u32, size: u32) {
+    pub unsafe extern "C" fn _plat__NvMemoryMove(
+        source_offset: u32,
+        dest_offset: u32,
+        size: u32,
+    ) -> i32 {
         match platform!().nv_memory_move(
             source_offset as usize,
             dest_offset as usize,
             size as usize,
         ) {
-            Ok(()) => {}
+            Ok(()) => true as i32,
             Err(e) => {
                 tracing::error!(
                     "error calling _plat__NvMemoryMove(source_offset: {:#x?}, dest_offset: {:#x?}, size: {:#x?}): {}",
@@ -358,6 +306,7 @@ mod c_api {
                     size,
                     e
                 );
+                false as i32
             }
         }
     }
