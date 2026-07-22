@@ -138,7 +138,6 @@ name = "ms-tcg-tpm-sys"
 version = "0.0.0"
 dependencies = [
  "bitfield-struct",
- "cc",
  "cmake",
  "fs-err",
  "openssl-sys",

@@ -9,6 +9,7 @@ use std::path::PathBuf;
 const SRC_PATH: &str = "./TPM/TPMCmd/";
 
 const TPM_CRYPTO_LIBRARIES: &[&str] = &[
+    "Tpm_CoreLib",
     "Tpm_CryptoLib_BnMath_Ossl",
     "Tpm_CryptoLib_Symmetric_Ossl",
     "Tpm_CryptoLib_Random_RandRef",
@@ -27,13 +28,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match env("TCG_TPM_LIB_DIR") {
         Some(var) => {
             println!("cargo:rustc-link-search=native={}", var.to_string_lossy());
-            println!("cargo:rustc-link-lib=static=Tpm_CoreLib");
-            for library in TPM_CRYPTO_LIBRARIES {
-                println!("cargo:rustc-link-lib=static:+whole-archive={library}");
-            }
-            return Ok(());
         }
         None => compile_tpm()?,
+    }
+
+    for library in TPM_CRYPTO_LIBRARIES {
+        println!("cargo:rustc-link-lib=static={library}");
     }
 
     Ok(())
@@ -51,11 +51,11 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed={}", SRC_PATH);
 
     // `runtime_state.c` reads/writes the TPM library's static globals to
-    // implement hot save/restore. It must be compiled with the exact same
-    // include paths as the core library, so the struct layouts match.
-    let tpm_src_root = manifest_dir.join(SRC_PATH).join("tpm");
+    // implement hot save/restore. Its compilation is included in the cmake build,
+    // but we need to tell cargo to re-run the build script if it changes.
     let runtime_state_path = manifest_dir.join("overrides/src/runtime_state.c");
     println!("cargo:rerun-if-changed={}", runtime_state_path.display());
+
     let openssl_include_dir = PathBuf::from(
         env("DEP_OPENSSL_INCLUDE").ok_or("openssl-sys did not provide its include directory")?,
     );
@@ -77,48 +77,13 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
         .define("user_TpmConfiguration_Dir", &tpm_config_dir)
         .build();
 
-    cc::Build::new()
-        .file(&runtime_state_path)
-        .include(tpm_src_root.join("include"))
-        .include(tpm_src_root.join("include/private"))
-        .include(tpm_src_root.join("include/private/prototypes"))
-        .include(tpm_src_root.join("include/platform_interface/Tpm_Platform_Interface"))
-        .include(tpm_src_root.join("include/platform_interface/Tpm_Platform_Interface/prototypes"))
-        .include(tpm_src_root.join("cryptolibs/implementations/TpmBigNum/include"))
-        .include(tpm_src_root.join("cryptolibs/common/include"))
-        .include(tpm_src_root.join("cryptolibs/interfaces"))
-        .include(tpm_src_root.join("cryptolibs/implementations/Ossl/include"))
-        .include(tpm_src_root.join("cryptolibs/implementations/RandRef/include"))
-        .include(tpm_src_root.join("cryptolibs/implementations/KdfRef/include"))
-        .include(&openssl_include_dir)
-        .include(&tpm_config_dir)
-        .define("BN_MATH_LIB", "Ossl")
-        .define("HASH_LIB", "Ossl")
-        .define("KDF_LIB", "KdfRef")
-        .define("MATH_LIB", "TpmBigNum")
-        .define("MLDSA_LIB", "Ossl")
-        .define("MLKEM_LIB", "Ossl")
-        .define("RAND_LIB", "RandRef")
-        .define("SYM_LIB", "Ossl")
-        .define("RSA_LIB", "RsaRef")
-        .define("ECC_LIB", "EccRef")
-        .compile("runtime_state");
-
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    fs_err::copy(
-        lib_dir.join("lib").join("libTpm_CoreLib.a"),
-        out_dir.join("libTpm_CoreLib.a"),
-    )?;
     for library in TPM_CRYPTO_LIBRARIES {
         let archive = format!("lib{library}.a");
         fs_err::copy(lib_dir.join("lib").join(&archive), out_dir.join(archive))?;
     }
 
-    // Cargo will pick up some static libraries because we have functions with
-    // the `#[link(name = "...")]` attribute. However it won't pick up these.
-    for library in TPM_CRYPTO_LIBRARIES {
-        println!("cargo:rustc-link-lib=static:+whole-archive={library}");
-    }
+    println!("cargo:rustc-link-search=native={}", out_dir.display());
 
     Ok(())
 }
