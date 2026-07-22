@@ -14,7 +14,7 @@ use std::io::Seek;
 use std::io::Write;
 use std::time::Instant;
 
-/// Minimal callback implementation, returning fake entropy,
+/// Minimal callback implementation using operating-system entropy.
 pub struct TestPlatformCallbacks {
     file: fs::File,
     time: Instant,
@@ -29,12 +29,8 @@ impl PlatformCallbacks for TestPlatformCallbacks {
     }
 
     fn get_crypt_random(&mut self, buf: &mut [u8]) -> DynResult<usize> {
-        tracing::info!("returning dummy entropy into buf of len {}", buf.len());
-
-        if let Some(b) = buf.get_mut(0) {
-            *b = 0xff;
-        }
-
+        tracing::info!("returning OS entropy into buf of len {}", buf.len());
+        getrandom::fill(buf)?;
         Ok(buf.len())
     }
 

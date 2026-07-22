@@ -358,6 +358,7 @@ struct MsTpm185PlatformState {
     locality: api::locality::LocalityState,
     nvmem: api::nvmem::NvState,
     power_plat: api::power_plat::PowerPlatState,
+    entropy: api::entropy::EntropyState,
 }
 
 impl MsTpm185PlatformState {
@@ -369,6 +370,7 @@ impl MsTpm185PlatformState {
             locality: api::locality::LocalityState::new(),
             nvmem: api::nvmem::NvState::new(size),
             power_plat: api::power_plat::PowerPlatState::new(),
+            entropy: api::entropy::EntropyState::new(),
         }
     }
 }
