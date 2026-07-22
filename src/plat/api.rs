@@ -19,7 +19,6 @@ pub mod locality;
 pub mod nv_virtual;
 pub mod nvmem;
 pub mod pcr;
-pub mod platform_act;
 pub mod power_plat;
 pub mod pp_plat;
 pub mod self_test;
