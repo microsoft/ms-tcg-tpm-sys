@@ -174,7 +174,8 @@
 //***********************************************
 // Defines controlling ACT
 //***********************************************
-#define ACT_SUPPORT                         YES
+// CHANGED_FROM_DEFAULT
+#define ACT_SUPPORT                         NO
 #define RH_ACT_0                                (YES * ACT_SUPPORT)
 #define RH_ACT_1                                ( NO * ACT_SUPPORT)
 #define RH_ACT_2                                ( NO * ACT_SUPPORT)
