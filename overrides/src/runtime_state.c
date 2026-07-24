@@ -150,7 +150,7 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
 };
 
 static uint32_t
-GetRuntimeStateSize()
+GetRuntimeStateSize(void)
 {
     uint32_t totalSize = 0;
     uint32_t i;
