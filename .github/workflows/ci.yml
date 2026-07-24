@@ -22,12 +22,16 @@ env:
 jobs:
   rust:
     name: rust (${{ matrix.name }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: openssl
+          - name: openssl (linux)
+            runner: ubuntu-latest
+            features: openssl,vendored
+          - name: openssl (windows)
+            runner: windows-latest
             features: openssl,vendored
     steps:
       - name: Authenticate to Azure
@@ -62,9 +66,31 @@ jobs:
         run: rustup component add clippy rustfmt
 
       - name: Install build dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake perl pkg-config
+
+      - name: Install OpenSSL build dependencies
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install strawberryperl nasm --no-progress --yes
+          "C:\Strawberry\perl\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "C:\Program Files\NASM" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Configure build tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-Command perl.exe -ErrorAction Stop
+          Get-Command nasm.exe -ErrorAction Stop
+          Get-Command cl.exe -ErrorAction Stop
+          Get-Command nmake.exe -ErrorAction Stop
+          $nm = (Get-Command llvm-nm.exe -ErrorAction Stop).Source
+          $objcopy = (Get-Command llvm-objcopy.exe -ErrorAction Stop).Source
+          "TCG_TPM_NM=$nm" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "TCG_TPM_OBJCOPY=$objcopy" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: cargo fmt --check
         id: rustfmt
