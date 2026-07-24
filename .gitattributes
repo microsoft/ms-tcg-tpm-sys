@@ -1,0 +1,14 @@
+# For consistency, use LF everywhere, even on Windows.
+* text=auto eol=lf
+# Except batch files, which often require CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Enable better diff support for various languages
+*.md diff=markdown
+*.rs diff=rust
+*.c diff=cpp
+*.h diff=cpp
+
+# Always display the diff for package lock files
+Cargo.lock linguist-generated=false
