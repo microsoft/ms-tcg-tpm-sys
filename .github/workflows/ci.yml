@@ -87,9 +87,7 @@ jobs:
           Get-Command nasm.exe -ErrorAction Stop
           Get-Command cl.exe -ErrorAction Stop
           Get-Command nmake.exe -ErrorAction Stop
-          $nm = (Get-Command llvm-nm.exe -ErrorAction Stop).Source
           $objcopy = (Get-Command llvm-objcopy.exe -ErrorAction Stop).Source
-          "TCG_TPM_NM=$nm" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "TCG_TPM_OBJCOPY=$objcopy" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: cargo fmt --check
