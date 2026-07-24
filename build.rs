@@ -3,6 +3,7 @@
 //! Build script to compile the C TPM reference library.
 
 use std::ffi::OsString;
+use std::path::Path;
 use std::path::PathBuf;
 
 // corresponds to path within git submodule.
@@ -59,12 +60,22 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     let openssl_include_dir = PathBuf::from(
         env("DEP_OPENSSL_INCLUDE").ok_or("openssl-sys did not provide its include directory")?,
     );
+    let target = std::env::var("TARGET")?;
+
+    // On Windows, the TPM library's CMake build system expects the OpenSSL include
+    // directory to be in a specific location.
+    if target.contains("windows-msvc") {
+        let tpm_openssl_include_dir = manifest_dir.join(SRC_PATH).join("OsslInclude/x64");
+        copy_dir(
+            &openssl_include_dir.join("openssl"),
+            &tpm_openssl_include_dir.join("openssl"),
+        )?;
+    }
 
     let lib_dir = cmake::Config::new(SRC_PATH)
         // We only want the core library
         .define("Tpm_BuildOption_LibOnly", "1")
         .define("CMAKE_C_STANDARD_INCLUDE_DIRECTORIES", &openssl_include_dir)
-        .define("OSSL_INCLUDE_SUBDIR", &openssl_include_dir)
         .define("SYMCRYPT_INCLUDE_DIR", "foo")
         .define("SYMCRYPT_LIB_DIR", "foo")
         // Set crypto backend
@@ -79,7 +90,6 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
         .build();
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let target = std::env::var("TARGET")?;
     let (archive_prefix, archive_extension) = if target.contains("windows-msvc") {
         ("", "lib")
     } else {
@@ -92,6 +102,22 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("cargo:rustc-link-search=native={}", out_dir.display());
+
+    Ok(())
+}
+
+fn copy_dir(source: &Path, destination: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    for entry in walkdir::WalkDir::new(source) {
+        let entry = entry?;
+        let relative_path = entry.path().strip_prefix(source)?;
+        let destination_path = destination.join(relative_path);
+
+        if entry.file_type().is_dir() {
+            fs_err::create_dir_all(destination_path)?;
+        } else if entry.file_type().is_file() {
+            fs_err::copy(entry.path(), destination_path)?;
+        }
+    }
 
     Ok(())
 }
