@@ -64,6 +64,7 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
         // We only want the core library
         .define("Tpm_BuildOption_LibOnly", "1")
         .define("CMAKE_C_STANDARD_INCLUDE_DIRECTORIES", &openssl_include_dir)
+        .define("OSSL_INCLUDE_SUBDIR", &openssl_include_dir)
         .define("SYMCRYPT_INCLUDE_DIR", "foo")
         .define("SYMCRYPT_LIB_DIR", "foo")
         // Set crypto backend
@@ -78,8 +79,15 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
         .build();
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let target = std::env::var("TARGET")?;
+    let (archive_prefix, archive_extension) = if target.contains("windows-msvc") {
+        ("", "lib")
+    } else {
+        ("lib", "a")
+    };
+
     for library in TPM_CRYPTO_LIBRARIES {
-        let archive = format!("lib{library}.a");
+        let archive = format!("{archive_prefix}{library}.{archive_extension}");
         fs_err::copy(lib_dir.join("lib").join(&archive), out_dir.join(archive))?;
     }
 
