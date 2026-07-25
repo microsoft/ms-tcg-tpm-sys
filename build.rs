@@ -138,13 +138,21 @@ fn namespace_libraries(lib_dir: &Path) -> Result<(), Box<dyn std::error::Error>>
             format!("lib{library}.a")
         });
         let dest_archive = out_dir.join(source_archive.file_name().unwrap());
-        let status = Command::new(&objcopy)
+        let output = Command::new(&objcopy)
             .arg(format!("--redefine-syms={}", rename_file.display()))
             .arg(&source_archive)
             .arg(&dest_archive)
-            .status()?;
-        if !status.success() {
-            return Err(format!("objcopy failed for {}", source_archive.display()).into());
+            .output()?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            return Err(format!(
+                "objcopy failed for {}\nstdout: {}\nstderr: {}",
+                source_archive.display(),
+                stdout,
+                stderr
+            )
+            .into());
         }
         println!("cargo:rustc-link-lib=static={library}");
     }
