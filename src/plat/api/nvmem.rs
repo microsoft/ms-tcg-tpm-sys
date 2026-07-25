@@ -322,4 +322,8 @@ mod c_api {
             }
         }
     }
+
+    #[unsafe(no_mangle)]
+    #[tracing::instrument(level = "trace")]
+    pub unsafe extern "C" fn _plat__TearDown() {}
 }

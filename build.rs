@@ -3,6 +3,7 @@
 //! Build script to compile the C TPM reference library.
 
 use std::ffi::OsString;
+use std::path::Path;
 use std::path::PathBuf;
 
 // corresponds to path within git submodule.
@@ -59,8 +60,46 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     let openssl_include_dir = PathBuf::from(
         env("DEP_OPENSSL_INCLUDE").ok_or("openssl-sys did not provide its include directory")?,
     );
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
+    let target = std::env::var("TARGET")?;
+    let mut cmake_config = cmake::Config::new(SRC_PATH);
 
-    let lib_dir = cmake::Config::new(SRC_PATH)
+    // On Windows, the TPM library's CMake build system expects the OpenSSL include
+    // directory to be in a specific location.
+    let (archive_prefix, archive_extension) = if target.contains("windows-msvc") {
+        let tpm_openssl_include_dir = manifest_dir.join(SRC_PATH).join("OsslInclude/x64");
+        copy_dir(
+            &openssl_include_dir.join("openssl"),
+            &tpm_openssl_include_dir.join("openssl"),
+        )?;
+
+        if std::env::var_os("CARGO_FEATURE_VENDORED").is_some() {
+            // MSVC looks beside final link artifacts for the PDB named by OpenSSL's objects.
+            let openssl_install_dir = openssl_include_dir
+                .parent()
+                .ok_or("OpenSSL include directory has no parent")?;
+            let profile_dir = out_dir
+                .parent()
+                .and_then(Path::parent)
+                .and_then(Path::parent)
+                .ok_or("Cargo OUT_DIR is not inside a profile build directory")?;
+            let deps_dir = profile_dir.join("deps");
+            fs_err::create_dir_all(&deps_dir)?;
+            fs_err::copy(
+                openssl_install_dir.join("lib/ossl_static.pdb"),
+                deps_dir.join("ossl_static.pdb"),
+            )?;
+        }
+
+        // Fix CRT mismatch warnings
+        cmake_config.define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreadedDLL");
+
+        ("", "lib")
+    } else {
+        ("lib", "a")
+    };
+
+    let lib_dir = cmake_config
         // We only want the core library
         .define("Tpm_BuildOption_LibOnly", "1")
         .define("CMAKE_C_STANDARD_INCLUDE_DIRECTORIES", &openssl_include_dir)
@@ -77,13 +116,28 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
         .define("user_TpmConfiguration_Dir", &tpm_config_dir)
         .build();
 
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     for library in TPM_CRYPTO_LIBRARIES {
-        let archive = format!("lib{library}.a");
+        let archive = format!("{archive_prefix}{library}.{archive_extension}");
         fs_err::copy(lib_dir.join("lib").join(&archive), out_dir.join(archive))?;
     }
 
     println!("cargo:rustc-link-search=native={}", out_dir.display());
+
+    Ok(())
+}
+
+fn copy_dir(source: &Path, destination: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    for entry in walkdir::WalkDir::new(source) {
+        let entry = entry?;
+        let relative_path = entry.path().strip_prefix(source)?;
+        let destination_path = destination.join(relative_path);
+
+        if entry.file_type().is_dir() {
+            fs_err::create_dir_all(destination_path)?;
+        } else if entry.file_type().is_file() {
+            fs_err::copy(entry.path(), destination_path)?;
+        }
+    }
 
     Ok(())
 }
