@@ -6,9 +6,6 @@ use std::ffi::OsString;
 use std::path::Path;
 use std::path::PathBuf;
 
-// corresponds to path within git submodule.
-const SRC_PATH: &str = "./TPM/TPMCmd/";
-
 const TPM_CRYPTO_LIBRARIES: &[&str] = &[
     "Tpm_CoreLib",
     "Tpm_CryptoLib_BnMath_Ossl",
@@ -24,6 +21,8 @@ const TPM_CRYPTO_LIBRARIES: &[&str] = &[
 ];
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    validate_openssl_version()?;
+
     // users can link against pre-built libs if they don't want to use the
     // version included in-tree
     match env("TCG_TPM_LIB_DIR") {
@@ -47,27 +46,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
 
-    let tpm_config_dir = manifest_dir.join("overrides/src/TpmConfiguration");
-    println!("cargo:rerun-if-changed={}", tpm_config_dir.display());
-    println!("cargo:rerun-if-changed={}", SRC_PATH);
+    // Corresponds to a path within the git submodule.
+    let tpm_src_dir = manifest_dir.join("TPM/TPMCmd");
+    println!("cargo:rerun-if-changed={}", tpm_src_dir.display());
 
-    // `runtime_state.c` reads/writes the TPM library's static globals to
-    // implement hot save/restore. Its compilation is included in the cmake build,
-    // but we need to tell cargo to re-run the build script if it changes.
-    let runtime_state_path = manifest_dir.join("overrides/src/runtime_state.c");
-    println!("cargo:rerun-if-changed={}", runtime_state_path.display());
+    let override_dir = manifest_dir.join("overrides");
+    println!("cargo:rerun-if-changed={}", override_dir.display());
+    let tpm_config_dir = override_dir.join("src/TpmConfiguration");
 
     let openssl_include_dir = PathBuf::from(
         env("DEP_OPENSSL_INCLUDE").ok_or("openssl-sys did not provide its include directory")?,
     );
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     let target = std::env::var("TARGET")?;
-    let mut cmake_config = cmake::Config::new(SRC_PATH);
+    let mut cmake_config = cmake::Config::new(&tpm_src_dir);
 
     // On Windows, the TPM library's CMake build system expects the OpenSSL include
     // directory to be in a specific location.
     let (archive_prefix, archive_extension) = if target.contains("windows-msvc") {
-        let tpm_openssl_include_dir = manifest_dir.join(SRC_PATH).join("OsslInclude/x64");
+        let tpm_openssl_include_dir = manifest_dir.join(&tpm_src_dir).join("OsslInclude/x64");
         copy_dir(
             &openssl_include_dir.join("openssl"),
             &tpm_openssl_include_dir.join("openssl"),
@@ -102,6 +99,8 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     let lib_dir = cmake_config
         // We only want the core library
         .define("Tpm_BuildOption_LibOnly", "1")
+        .define("TPM_SOURCE_DIR", &tpm_src_dir)
+        .define("OSSL_INCLUDE_SUBDIR", &openssl_include_dir)
         .define("CMAKE_C_STANDARD_INCLUDE_DIRECTORIES", &openssl_include_dir)
         .define("SYMCRYPT_INCLUDE_DIR", "foo")
         .define("SYMCRYPT_LIB_DIR", "foo")
@@ -127,16 +126,33 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn copy_dir(source: &Path, destination: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    for entry in walkdir::WalkDir::new(source) {
-        let entry = entry?;
-        let relative_path = entry.path().strip_prefix(source)?;
-        let destination_path = destination.join(relative_path);
+    fs_err::create_dir_all(destination)?;
 
-        if entry.file_type().is_dir() {
-            fs_err::create_dir_all(destination_path)?;
-        } else if entry.file_type().is_file() {
+    for entry in std::fs::read_dir(source)? {
+        let entry = entry?;
+        let destination_path = destination.join(entry.file_name());
+        let file_type = entry.file_type()?;
+
+        if file_type.is_dir() {
+            copy_dir(&entry.path(), &destination_path)?;
+        } else if file_type.is_file() {
             fs_err::copy(entry.path(), destination_path)?;
         }
+    }
+    Ok(())
+}
+
+fn validate_openssl_version() -> Result<(), Box<dyn std::error::Error>> {
+    const MIN_OPENSSL_VERSION: u64 = 0x3050_0000;
+    let openssl_version = env("DEP_OPENSSL_VERSION_NUMBER")
+        .and_then(|value| value.into_string().ok())
+        .and_then(|value| u64::from_str_radix(&value, 16).ok())
+        .ok_or("openssl-sys did not provide a valid OpenSSL version")?;
+    if openssl_version < MIN_OPENSSL_VERSION {
+        return Err(format!(
+            "OpenSSL 3.5 or newer is required by the enabled ML-KEM and ML-DSA profile (found {openssl_version:x})"
+        )
+        .into());
     }
 
     Ok(())
