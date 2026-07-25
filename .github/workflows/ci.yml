@@ -32,9 +32,17 @@ jobs:
           - name: openssl (linux)
             runner: ubuntu-latest
             features: openssl,vendored
+          - name: openssl (linux arm64)
+            runner: ubuntu-24.04-arm
+            features: openssl,vendored
           - name: openssl (windows)
             runner: windows-latest
             features: openssl,vendored
+            msvc_arch: x64
+          - name: openssl (windows arm64)
+            runner: windows-11-arm
+            features: openssl,vendored
+            msvc_arch: arm64
     steps:
       - name: Authenticate to Azure
         uses: azure/login@v2
@@ -84,6 +92,8 @@ jobs:
       - name: Set up MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch }}
 
       - name: Configure build tools
         if: runner.os == 'Windows'
