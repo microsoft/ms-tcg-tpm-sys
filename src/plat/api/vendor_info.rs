@@ -44,15 +44,15 @@ struct SpecCapabilityValue {
 mod c_api {
     use super::SpecCapabilityValue;
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__GetManufacturerCapabilityCode")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__GetManufacturerCapabilityCode() -> u32 {
+    pub unsafe extern "C" fn plat_get_manufacturer_capability_code() -> u32 {
         super::MANUFACTURER
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__GetVendorCapabilityCode")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__GetVendorCapabilityCode(index: i32) -> u32 {
+    pub unsafe extern "C" fn plat_get_vendor_capability_code(index: i32) -> u32 {
         match index {
             1 => super::VENDOR_STRING_1,
             2 => super::VENDOR_STRING_2,
@@ -62,46 +62,46 @@ mod c_api {
         }
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__GetTpmFirmwareVersionHigh")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__GetTpmFirmwareVersionHigh() -> u32 {
+    pub unsafe extern "C" fn plat_get_tpm_firmware_version_high() -> u32 {
         super::FIRMWARE_V1
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__GetTpmFirmwareVersionLow")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__GetTpmFirmwareVersionLow() -> u32 {
+    pub unsafe extern "C" fn plat_get_tpm_firmware_version_low() -> u32 {
         super::FIRMWARE_V2
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__GetVendorTpmType")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__GetVendorTpmType() -> u32 {
+    pub unsafe extern "C" fn plat_get_vendor_tpm_type() -> u32 {
         super::VENDOR_TPM_TYPE
     }
 
     /// Current TPM firmware SVN. We do not implement SVN-limited objects
     /// (`SVN_LIMITED_SUPPORT NO` in TpmProfile_Common.h), but the core
     /// library still queries this.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__GetTpmFirmwareSvn")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__GetTpmFirmwareSvn() -> u16 {
+    pub unsafe extern "C" fn plat_get_tpm_firmware_svn() -> u16 {
         0
     }
 
     /// Maximum SVN value the firmware can ever report.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__GetTpmFirmwareMaxSvn")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__GetTpmFirmwareMaxSvn() -> u16 {
+    pub unsafe extern "C" fn plat_get_tpm_firmware_max_svn() -> u16 {
         0
     }
 
     /// Provide platform-supplied bytes for the persistent-data area during
     /// manufacture / Clear. The reference implementation fills with 0xFF; we
     /// have no platform-side data to inject, so we mirror that.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__GetPlatformManufactureData")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__GetPlatformManufactureData(
+    pub unsafe extern "C" fn plat_get_platform_manufacture_data(
         platform_persistent_data: *mut u8,
         buffer_size: u32,
     ) {
@@ -117,9 +117,9 @@ mod c_api {
 
     /// Fill in the spec-version capability struct (`SPEC_CAPABILITY_VALUE`).
     /// Values mirror what the upstream reference platform reports for v1.85.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat_GetSpecCapabilityValue")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat_GetSpecCapabilityValue(return_data: *mut SpecCapabilityValue) {
+    pub unsafe extern "C" fn plat_get_spec_capability_value(return_data: *mut SpecCapabilityValue) {
         if return_data.is_null() {
             return;
         }

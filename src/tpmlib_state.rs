@@ -12,6 +12,7 @@ unsafe extern "C" {
     // - 0 on success
     // - 1 for invalid arg
     // - 2 for insufficient size (setting pBufferSize to required size)
+    #[link_name = "ms_tcg_tpm_185_INJECTED_GetRuntimeState"]
     pub fn INJECTED_GetRuntimeState(pBuffer: *mut u8, pBufferSize: *mut u32) -> i32;
 
     // Returns:
@@ -19,6 +20,7 @@ unsafe extern "C" {
     // - 1 for invalid arg
     // - 2 for size mismatch
     // - 3 for format validation error
+    #[link_name = "ms_tcg_tpm_185_INJECTED_ApplyRuntimeState"]
     pub fn INJECTED_ApplyRuntimeState(pBuffer: *const u8, pBufferSize: u32) -> i32;
 }
 

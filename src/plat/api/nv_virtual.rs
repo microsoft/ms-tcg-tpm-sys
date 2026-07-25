@@ -29,24 +29,24 @@ mod c_api {
     /// Report whether `handle` refers to a platform-virtualized NV index.
     /// We never advertise virtual indices, so this is always FALSE — which in
     /// turn means the `_plat__NvVirtual_*` entry points below are unreachable.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__IsNvVirtualIndex")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__IsNvVirtualIndex(_handle: u32) -> i32 {
+    pub unsafe extern "C" fn plat_is_nv_virtual_index(_handle: u32) -> i32 {
         BOOL_FALSE
     }
 
     /// Report whether a given command code accepts virtual NV handles.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__NvOperationAcceptsVirtualHandles")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__NvOperationAcceptsVirtualHandles(_command_code: u32) -> i32 {
+    pub unsafe extern "C" fn plat_nv_operation_accepts_virtual_handles(_command_code: u32) -> i32 {
         BOOL_FALSE
     }
 
     /// Populate a virtual NV index's public area and auth value. Unreachable
     /// (gated at runtime by `_plat__IsNvVirtualIndex`).
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__NvVirtual_PopulateNvIndexInfo")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__NvVirtual_PopulateNvIndexInfo(
+    pub unsafe extern "C" fn plat_nv_virtual_populate_nv_index_info(
         _handle: u32,
         _public_area: *mut c_void,
         _auth_value: *mut c_void,
@@ -55,16 +55,16 @@ mod c_api {
     }
 
     /// Service `TPM2_NV_Read` for a virtual index. Unreachable.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__NvVirtual_Read")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__NvVirtual_Read(_in: *mut c_void, _out: *mut c_void) -> u32 {
+    pub unsafe extern "C" fn plat_nv_virtual_read(_in: *mut c_void, _out: *mut c_void) -> u32 {
         TPM_RC_NO_RESULT
     }
 
     /// Service `TPM2_NV_ReadPublic` for a virtual index. Unreachable.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__NvVirtual_ReadPublic")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__NvVirtual_ReadPublic(
+    pub unsafe extern "C" fn plat_nv_virtual_read_public(
         _in: *mut c_void,
         _out: *mut c_void,
     ) -> u32 {
@@ -72,9 +72,9 @@ mod c_api {
     }
 
     /// Append virtual-NV handles to a `GetCapability` list. We have none.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__NvVirtual_CapGetIndex")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__NvVirtual_CapGetIndex(
+    pub unsafe extern "C" fn plat_nv_virtual_cap_get_index(
         _handle: u32,
         _count: u32,
         _handle_list: *mut c_void,
