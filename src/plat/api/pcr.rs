@@ -89,17 +89,21 @@ const INIT_ATTRIBUTES: [PcrAttributes; NUM_PCRS as usize] = [
 ];
 
 // TPM_ALG_* from TpmTypes.h
+const TPM_ALG_SHA1: u16 = 0x0004;
 const TPM_ALG_SHA256: u16 = 0x000B;
 const TPM_ALG_SHA384: u16 = 0x000C;
+const TPM_ALG_SHA512: u16 = 0x000D;
 
 // DefaultActivePcrBanks from PlatformPcr.c, selected by TpmProfile_Common.h.
 const DEFAULT_ACTIVE_PCR_BANKS: &[u16] = &[TPM_ALG_SHA256, TPM_ALG_SHA384];
 
-// SHA256_DIGEST_SIZE and SHA384_DIGEST_SIZE from TpmAlgorithmDefines.h.
+// Digest sizes from TpmAlgorithmDefines.h for all enabled PCR hash algorithms.
 const fn digest_size(alg: u16) -> Option<u16> {
     match alg {
+        TPM_ALG_SHA1 => Some(20),
         TPM_ALG_SHA256 => Some(32),
         TPM_ALG_SHA384 => Some(48),
+        TPM_ALG_SHA512 => Some(64),
         _ => None,
     }
 }
