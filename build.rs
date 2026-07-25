@@ -64,7 +64,7 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     // On Windows, the TPM library's CMake build system expects the OpenSSL include
     // directory to be in a specific location.
     let (archive_prefix, archive_extension) = if target.contains("windows-msvc") {
-        let tpm_openssl_include_dir = manifest_dir.join(&tpm_src_dir).join("OsslInclude/x64");
+        let tpm_openssl_include_dir = tpm_src_dir.join("OsslInclude/x64");
         copy_dir(
             &openssl_include_dir.join("openssl"),
             &tpm_openssl_include_dir.join("openssl"),
