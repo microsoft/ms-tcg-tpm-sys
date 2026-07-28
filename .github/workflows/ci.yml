@@ -32,8 +32,14 @@ jobs:
           - name: openssl (linux)
             runner: ubuntu-latest
             features: openssl,vendored
+          - name: openssl (linux arm64)
+            runner: ubuntu-24.04-arm
+            features: openssl,vendored
           - name: openssl (windows)
             runner: windows-latest
+            features: openssl,vendored
+          - name: openssl (windows arm64)
+            runner: windows-11-arm
             features: openssl,vendored
     steps:
       - name: Authenticate to Azure
