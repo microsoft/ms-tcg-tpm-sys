@@ -40,9 +40,9 @@ impl MsTpm185PlatformImpl {
 }
 
 mod c_api {
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__WasPowerLost")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__WasPowerLost() -> i32 {
+    pub unsafe extern "C" fn plat_was_power_lost() -> i32 {
         platform!().was_power_lost() as i32
     }
 }

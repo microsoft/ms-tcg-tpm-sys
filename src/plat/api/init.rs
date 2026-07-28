@@ -7,13 +7,13 @@
 //! end of a successful init.
 
 mod c_api {
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__StartTpmInit")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__StartTpmInit() {
+    pub unsafe extern "C" fn plat_start_tpm_init() {
         platform!().reset_failure();
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__EndOkTpmInit")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__EndOkTpmInit() {}
+    pub unsafe extern "C" fn plat_end_ok_tpm_init() {}
 }

@@ -167,9 +167,9 @@ impl MsTpm185PlatformImpl {
 mod c_api {
     use core::ffi::c_void;
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__NVEnable")]
     #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__NVEnable(plat_parameter: *mut c_void) -> i32 {
+    pub unsafe extern "C" fn plat_nv_enable(plat_parameter: *mut c_void) -> i32 {
         match platform!().nv_enable() {
             Ok(()) => 0,
             Err(e) => {
@@ -179,15 +179,15 @@ mod c_api {
         }
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__GetNvReadyState")]
     #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__GetNvReadyState() -> i32 {
+    pub unsafe extern "C" fn plat_get_nv_ready_state() -> i32 {
         platform!().is_nv_available() as i32
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__NvMemoryRead")]
     #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__NvMemoryRead(
+    pub unsafe extern "C" fn plat_nv_memory_read(
         start_offset: u32,
         size: u32,
         data: *mut c_void,
@@ -212,9 +212,9 @@ mod c_api {
         }
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__NvGetChangedStatus")]
     #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__NvGetChangedStatus(
+    pub unsafe extern "C" fn plat_nv_get_changed_status(
         start_offset: u32,
         size: u32,
         data: *mut c_void,
@@ -241,9 +241,9 @@ mod c_api {
         }
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__NvMemoryWrite")]
     #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__NvMemoryWrite(
+    pub unsafe extern "C" fn plat_nv_memory_write(
         start_offset: u32,
         size: u32,
         data: *mut c_void,
@@ -268,9 +268,9 @@ mod c_api {
         }
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__NvMemoryClear")]
     #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__NvMemoryClear(start: u32, size: u32) -> i32 {
+    pub unsafe extern "C" fn plat_nv_memory_clear(start: u32, size: u32) -> i32 {
         match platform!().nv_memory_clear(start as usize, size as usize) {
             Ok(()) => true as i32,
             Err(e) => {
@@ -285,9 +285,9 @@ mod c_api {
         }
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__NvMemoryMove")]
     #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__NvMemoryMove(
+    pub unsafe extern "C" fn plat_nv_memory_move(
         source_offset: u32,
         dest_offset: u32,
         size: u32,
@@ -311,9 +311,9 @@ mod c_api {
         }
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__NvCommit")]
     #[tracing::instrument(level = "trace", ret)]
-    pub unsafe extern "C" fn _plat__NvCommit() -> i32 {
+    pub unsafe extern "C" fn plat_nv_commit() -> i32 {
         match platform!().nv_commit() {
             Ok(()) => 0,
             Err(e) => {
@@ -323,7 +323,7 @@ mod c_api {
         }
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__TearDown")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__TearDown() {}
+    pub unsafe extern "C" fn plat_teardown() {}
 }

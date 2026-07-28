@@ -29,12 +29,17 @@ env-var, this crate will compile `TrustedComputingGroup/TPM` from source via
 CMake. So long as you have a C compiler and CMake installed, the build script
 should be able to build it without issue.
 
-When `TCG_TPM_LIB_DIR` is set, the build script will instead link against the
-following pre-built static libraries from the specified directory:
+The build script uses `objcopy` and the checked-in `tpm-symbol-renames.txt` map
+to namespace the TPM library's Rust/native ABI symbols. It defaults to
+`llvm-objcopy` on MSVC and Apple targets. When cross-compiling, set
+`TCG_TPM_OBJCOPY` (or its target-prefixed form, such as
+`AARCH64_UNKNOWN_LINUX_GNU_TCG_TPM_OBJCOPY`) to the corresponding target-aware
+tool.
 
-- `libruntime_state.a` - C hooks for vTPM-style live save/restore (built from
-  `overrides/src/runtime_state.c`).
-- `libTpm_*.a` - libraries produced by the TPM reference library.
+When `TCG_TPM_LIB_DIR` is set, the build script will instead namespace and link
+the following pre-built static libraries from the specified directory:
+
+- `libTpm_*.a` or `Tpm_*.lib` - libraries produced by the TPM reference library.
 
 Building OpenSSL may be a bit more tricky. See the `openssl` crate
 documentation for instructions on how to build + link against OpenSSL:

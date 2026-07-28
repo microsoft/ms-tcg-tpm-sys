@@ -5,9 +5,9 @@
 // TODO: model physical presence using `PlatformCallbacks`?
 
 mod c_api {
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__PhysicalPresenceAsserted")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__PhysicalPresenceAsserted() -> i32 {
+    pub unsafe extern "C" fn plat_physical_presence_asserted() -> i32 {
         false as i32
     }
 }

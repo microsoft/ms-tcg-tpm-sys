@@ -56,9 +56,9 @@ impl MsTpm185PlatformImpl {
 
 mod c_api {
     /// Records the first failure reported by the TPM library.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__Fail")]
     #[tracing::instrument(level = "trace", skip(_function))]
-    pub unsafe extern "C" fn _plat__Fail(
+    pub unsafe extern "C" fn plat_fail(
         _function: *const std::ffi::c_char,
         _line: i32,
         location_code: u64,
@@ -68,23 +68,23 @@ mod c_api {
     }
 
     /// Indicates to the TPM library that a failure has occurred.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__InFailureMode")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__InFailureMode() -> i32 {
+    pub unsafe extern "C" fn plat_in_failure_mode() -> i32 {
         platform!().in_failure_mode() as i32
     }
 
     /// Vendor-defined failure-reason code reported via TPM2_GetTestResult.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__GetFailureCode")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__GetFailureCode() -> u32 {
+    pub unsafe extern "C" fn plat_get_failure_code() -> u32 {
         platform!().failure_code()
     }
 
     /// Vendor-defined 64-bit location code reported via TPM2_GetTestResult.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__GetFailureLocation")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__GetFailureLocation() -> u64 {
+    pub unsafe extern "C" fn plat_get_failure_location() -> u64 {
         platform!().failure_location()
     }
 }
