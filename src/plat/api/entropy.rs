@@ -74,9 +74,9 @@ impl MsTpm185PlatformImpl {
 }
 
 mod c_api {
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__GetEntropy")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__GetEntropy(entropy: *mut u8, amount: u32) -> i32 {
+    pub unsafe extern "C" fn plat_get_entropy(entropy: *mut u8, amount: u32) -> i32 {
         // The TPM core library uses a zero-length call to initialize the source.
         // Capture and discard the first block for the continuous RNG test.
         if amount == 0 {

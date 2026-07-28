@@ -125,9 +125,9 @@ impl MsTpm185PlatformImpl {
 }
 
 mod c_api {
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__LocalityGet")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__LocalityGet() -> u8 {
+    pub unsafe extern "C" fn plat_locality_get() -> u8 {
         platform!().locality_get()
     }
 }

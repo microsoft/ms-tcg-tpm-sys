@@ -32,12 +32,18 @@ jobs:
           - name: openssl (linux)
             runner: ubuntu-latest
             features: openssl,vendored
+          - name: openssl (linux arm64)
+            runner: ubuntu-24.04-arm
+            features: openssl,vendored
           - name: openssl (windows)
             runner: windows-latest
             features: openssl,vendored
+          - name: openssl (windows arm64)
+            runner: windows-11-arm
+            features: openssl,vendored
     steps:
       - name: Authenticate to Azure
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -56,7 +62,7 @@ jobs:
           printf 'token=%s\n' "$token" >> "$GITHUB_OUTPUT"
 
       - name: Checkout (with submodules)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         env:
           GIT_CONFIG_COUNT: 1
           GIT_CONFIG_KEY_0: http.https://microsoft@dev.azure.com/microsoft.extraheader
@@ -128,6 +134,47 @@ jobs:
         continue-on-error: true
         run: cargo doc --locked --workspace --no-deps --no-default-features --features ${{ matrix.features }}
 
-      - name: Fail if any check failed
-        if: steps.rustfmt.outcome == 'failure' || steps.clippy.outcome == 'failure' || steps.test.outcome == 'failure' || steps.cold_init.outcome == 'failure' || steps.warm_restore.outcome == 'failure' || steps.doc.outcome == 'failure'
-        run: exit 1
+      - name: Report and fail checks
+        if: always()
+        shell: bash
+        env:
+          RUSTFMT_OUTCOME: ${{ steps.rustfmt.outcome }}
+          CLIPPY_OUTCOME: ${{ steps.clippy.outcome }}
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+          COLD_INIT_OUTCOME: ${{ steps.cold_init.outcome }}
+          WARM_RESTORE_OUTCOME: ${{ steps.warm_restore.outcome }}
+          DOC_OUTCOME: ${{ steps.doc.outcome }}
+        run: |
+          failed=false
+
+          report_failure() {
+            local name="$1"
+            local outcome="$2"
+            if [[ "$outcome" == "failure" ]]; then
+              echo "::warning title=$name failed::$name failed; see the step logs for details."
+              printf -- '- **%s** failed; see the step logs for details.\n' "$name" >> "$GITHUB_STEP_SUMMARY"
+              failed=true
+            fi
+          }
+
+          report_failure "rustfmt" "$RUSTFMT_OUTCOME"
+          report_failure "clippy" "$CLIPPY_OUTCOME"
+          report_failure "unit tests" "$TEST_OUTCOME"
+          report_failure "test-harness (cold init)" "$COLD_INIT_OUTCOME"
+          report_failure "test-harness (warm restore)" "$WARM_RESTORE_OUTCOME"
+          report_failure "documentation" "$DOC_OUTCOME"
+
+          if [[ "$failed" == "true" ]]; then
+            exit 1
+          fi
+
+  all-matrix-runs-pass:
+    name: All matrix runs pass
+    if: always()
+    needs: rust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require successful matrix
+        env:
+          MATRIX_RESULT: ${{ needs.rust.result }}
+        run: test "$MATRIX_RESULT" = success

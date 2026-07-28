@@ -33,9 +33,9 @@ impl MsTpm185PlatformImpl {
 }
 
 mod c_api {
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__IsCanceled")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__IsCanceled() -> i32 {
+    pub unsafe extern "C" fn plat_is_canceled() -> i32 {
         platform!().is_canceled() as i32
     }
 }

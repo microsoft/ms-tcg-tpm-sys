@@ -178,27 +178,27 @@ impl MsTpm185PlatformImpl {
 }
 
 mod c_api {
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__TimerRead")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__TimerRead() -> u64 {
+    pub unsafe extern "C" fn plat_timer_read() -> u64 {
         platform!().timer_read()
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__TimerWasReset")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__TimerWasReset() -> i32 {
+    pub unsafe extern "C" fn plat_timer_was_reset() -> i32 {
         platform!().timer_was_reset() as i32
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__TimerWasStopped")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__TimerWasStopped() -> i32 {
+    pub unsafe extern "C" fn plat_timer_was_stopped() -> i32 {
         platform!().timer_was_stopped() as i32
     }
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__plat__ClockRateAdjust")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _plat__ClockRateAdjust(adjustment: i32) {
+    pub unsafe extern "C" fn plat_clock_rate_adjust(adjustment: i32) {
         platform!().clock_rate_adjust(adjustment)
     }
 }

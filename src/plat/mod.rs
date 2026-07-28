@@ -44,8 +44,11 @@ static PLATFORM: LazyLock<Mutex<Option<MsTpm185PlatformImpl>>> = LazyLock::new(|
 mod ffi {
     #[link(name = "Tpm_CoreLib", kind = "static")]
     unsafe extern "C" {
+        #[link_name = "ms_tcg_tpm_185__TPM_Init"]
         pub fn _TPM_Init();
+        #[link_name = "ms_tcg_tpm_185_TPM_Manufacture"]
         pub fn TPM_Manufacture(firstTime: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
+        #[link_name = "ms_tcg_tpm_185_ExecuteCommand"]
         pub fn ExecuteCommand(
             requestSize: u32,
             request: *mut u8,

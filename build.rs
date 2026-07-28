@@ -5,7 +5,15 @@
 use std::ffi::OsString;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 
+<<<<<<< HEAD
+=======
+// corresponds to path within git submodule.
+const SRC_PATH: &str = "./TPM/TPMCmd/";
+const SYMBOL_RENAME_FILE: &str = "tpm-symbol-renames.txt";
+
+>>>>>>> origin/main
 const TPM_CRYPTO_LIBRARIES: &[&str] = &[
     "Tpm_CoreLib",
     "Tpm_CryptoLib_BnMath_Ossl",
@@ -25,16 +33,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // users can link against pre-built libs if they don't want to use the
     // version included in-tree
-    match env("TCG_TPM_LIB_DIR") {
+    let lib_dir = match env("TCG_TPM_LIB_DIR") {
         Some(var) => {
-            println!("cargo:rustc-link-search=native={}", var.to_string_lossy());
+            let lib_dir = PathBuf::from(var);
+            println!("cargo:rerun-if-changed={}", lib_dir.display());
+            lib_dir
         }
         None => compile_tpm()?,
-    }
+    };
 
-    for library in TPM_CRYPTO_LIBRARIES {
-        println!("cargo:rustc-link-lib=static={library}");
-    }
+    namespace_libraries(&lib_dir)?;
 
     Ok(())
 }
@@ -43,8 +51,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///
 /// See `README.md` for additional info regarding supported TPM library versions
 /// and crypto backends.
-fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
+fn compile_tpm() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
 
     // Corresponds to a path within the git submodule.
     let tpm_src_dir = manifest_dir.join("TPM/TPMCmd");
@@ -57,21 +66,27 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
     let openssl_include_dir = PathBuf::from(
         env("DEP_OPENSSL_INCLUDE").ok_or("openssl-sys did not provide its include directory")?,
     );
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     let target = std::env::var("TARGET")?;
     let mut cmake_config = cmake::Config::new(&tpm_src_dir);
 
+<<<<<<< HEAD
     // On Windows, the TPM library's CMake build system expects the OpenSSL include
     // directory to be in a specific location.
     let (archive_prefix, archive_extension) = if target.contains("windows-msvc") {
         let tpm_openssl_include_dir = tpm_src_dir.join("OsslInclude/x64");
+=======
+    if target.contains("windows-msvc") {
+        // On Windows, the TPM library's CMake build system expects the OpenSSL include
+        // directory to be in a specific location.
+        let tpm_openssl_include_dir = manifest_dir.join(SRC_PATH).join("OsslInclude/x64");
+>>>>>>> origin/main
         copy_dir(
             &openssl_include_dir.join("openssl"),
             &tpm_openssl_include_dir.join("openssl"),
         )?;
 
+        // MSVC looks beside final link artifacts for the PDB named by OpenSSL's objects.
         if std::env::var_os("CARGO_FEATURE_VENDORED").is_some() {
-            // MSVC looks beside final link artifacts for the PDB named by OpenSSL's objects.
             let openssl_install_dir = openssl_include_dir
                 .parent()
                 .ok_or("OpenSSL include directory has no parent")?;
@@ -90,11 +105,7 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
 
         // Fix CRT mismatch warnings
         cmake_config.define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreadedDLL");
-
-        ("", "lib")
-    } else {
-        ("lib", "a")
-    };
+    }
 
     let lib_dir = cmake_config
         // We only want the core library
@@ -115,14 +126,59 @@ fn compile_tpm() -> Result<(), Box<dyn std::error::Error>> {
         .define("user_TpmConfiguration_Dir", &tpm_config_dir)
         .build();
 
-    for library in TPM_CRYPTO_LIBRARIES {
-        let archive = format!("{archive_prefix}{library}.{archive_extension}");
-        fs_err::copy(lib_dir.join("lib").join(&archive), out_dir.join(archive))?;
-    }
+    Ok(lib_dir.join("lib"))
+}
 
+/// Copy the TPM archives and namespace the Rust/native ABI boundary.
+///
+/// TPM entry points called by Rust and references to Rust platform callbacks
+/// are renamed. Symbols used only within the native libraries are unchanged.
+fn namespace_libraries(lib_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
+    let target = std::env::var("TARGET")?;
+    let objcopy = env("TCG_TPM_OBJCOPY").unwrap_or_else(|| default_binary_tool("objcopy"));
     println!("cargo:rustc-link-search=native={}", out_dir.display());
 
+    let rename_file = manifest_dir.join(SYMBOL_RENAME_FILE);
+    println!("cargo:rerun-if-changed={}", rename_file.display());
+
+    for library in TPM_CRYPTO_LIBRARIES {
+        let source_archive = lib_dir.join(if target.contains("windows-msvc") {
+            format!("{library}.lib")
+        } else {
+            format!("lib{library}.a")
+        });
+        let dest_archive = out_dir.join(source_archive.file_name().unwrap());
+        let output = Command::new(&objcopy)
+            .arg(format!("--redefine-syms={}", rename_file.display()))
+            .arg(&source_archive)
+            .arg(&dest_archive)
+            .output()?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            return Err(format!(
+                "objcopy failed for {}\nstdout: {}\nstderr: {}",
+                source_archive.display(),
+                stdout,
+                stderr
+            )
+            .into());
+        }
+        println!("cargo:rustc-link-lib=static={library}");
+    }
+
     Ok(())
+}
+
+fn default_binary_tool(tool: &str) -> OsString {
+    let target = std::env::var("TARGET").unwrap();
+    if target.ends_with("-msvc") || target.contains("-apple-") {
+        OsString::from(format!("llvm-{tool}"))
+    } else {
+        OsString::from(tool)
+    }
 }
 
 fn copy_dir(source: &Path, destination: &Path) -> Result<(), Box<dyn std::error::Error>> {

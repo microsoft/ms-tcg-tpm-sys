@@ -89,17 +89,21 @@ const INIT_ATTRIBUTES: [PcrAttributes; NUM_PCRS as usize] = [
 ];
 
 // TPM_ALG_* from TpmTypes.h
+const TPM_ALG_SHA1: u16 = 0x0004;
 const TPM_ALG_SHA256: u16 = 0x000B;
 const TPM_ALG_SHA384: u16 = 0x000C;
+const TPM_ALG_SHA512: u16 = 0x000D;
 
 // DefaultActivePcrBanks from PlatformPcr.c, selected by TpmProfile_Common.h.
 const DEFAULT_ACTIVE_PCR_BANKS: &[u16] = &[TPM_ALG_SHA256, TPM_ALG_SHA384];
 
-// SHA256_DIGEST_SIZE and SHA384_DIGEST_SIZE from TpmAlgorithmDefines.h.
+// Digest sizes from TpmAlgorithmDefines.h for all enabled PCR hash algorithms.
 const fn digest_size(alg: u16) -> Option<u16> {
     match alg {
+        TPM_ALG_SHA1 => Some(20),
         TPM_ALG_SHA256 => Some(32),
         TPM_ALG_SHA384 => Some(48),
+        TPM_ALG_SHA512 => Some(64),
         _ => None,
     }
 }
@@ -107,17 +111,17 @@ const fn digest_size(alg: u16) -> Option<u16> {
 mod c_api {
     use super::*;
 
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__platPcr__NumberOfPcrs")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _platPcr__NumberOfPcrs() -> u32 {
+    pub unsafe extern "C" fn plat_pcr_number_of_pcrs() -> u32 {
         NUM_PCRS
     }
 
     /// Returns the bitfield-packed `PCR_Attributes` for `pcr_number`. Out-of-
     /// range inputs return PCR 0's attributes (matches upstream behavior).
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__platPcr__GetPcrInitializationAttributes")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _platPcr__GetPcrInitializationAttributes(pcr_number: u32) -> u32 {
+    pub unsafe extern "C" fn plat_pcr_get_pcr_initialization_attributes(pcr_number: u32) -> u32 {
         let idx = if pcr_number >= NUM_PCRS {
             0
         } else {
@@ -127,9 +131,9 @@ mod c_api {
     }
 
     /// True if `pcr_alg` should default to active in a new TPM.
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__platPcr_IsPcrBankDefaultActive")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _platPcr_IsPcrBankDefaultActive(pcr_alg: u16) -> i32 {
+    pub unsafe extern "C" fn plat_pcr_is_pcr_bank_default_active(pcr_alg: u16) -> i32 {
         DEFAULT_ACTIVE_PCR_BANKS.contains(&pcr_alg) as i32
     }
 
@@ -142,9 +146,9 @@ mod c_api {
     /// - `TPM_RC_SUCCESS` (0) on success
     /// - `TPM_RC_PCR` (0x127) if the platform has no value for this PCR
     /// - `TPM_RC_FAILURE` (0x101) if the buffer is too small
-    #[unsafe(no_mangle)]
+    #[unsafe(export_name = "ms_tcg_tpm_185__platPcr__GetInitialValueForPcr")]
     #[tracing::instrument(level = "trace")]
-    pub unsafe extern "C" fn _platPcr__GetInitialValueForPcr(
+    pub unsafe extern "C" fn plat_pcr_get_initial_value_for_pcr(
         pcr_number: u32,
         pcr_alg: u16,
         startup_locality: u8,
