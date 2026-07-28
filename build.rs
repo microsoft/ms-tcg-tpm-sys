@@ -7,13 +7,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
-<<<<<<< HEAD
-=======
-// corresponds to path within git submodule.
-const SRC_PATH: &str = "./TPM/TPMCmd/";
 const SYMBOL_RENAME_FILE: &str = "tpm-symbol-renames.txt";
 
->>>>>>> origin/main
 const TPM_CRYPTO_LIBRARIES: &[&str] = &[
     "Tpm_CoreLib",
     "Tpm_CryptoLib_BnMath_Ossl",
@@ -69,17 +64,10 @@ fn compile_tpm() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let target = std::env::var("TARGET")?;
     let mut cmake_config = cmake::Config::new(&tpm_src_dir);
 
-<<<<<<< HEAD
-    // On Windows, the TPM library's CMake build system expects the OpenSSL include
-    // directory to be in a specific location.
-    let (archive_prefix, archive_extension) = if target.contains("windows-msvc") {
-        let tpm_openssl_include_dir = tpm_src_dir.join("OsslInclude/x64");
-=======
     if target.contains("windows-msvc") {
         // On Windows, the TPM library's CMake build system expects the OpenSSL include
         // directory to be in a specific location.
-        let tpm_openssl_include_dir = manifest_dir.join(SRC_PATH).join("OsslInclude/x64");
->>>>>>> origin/main
+        let tpm_openssl_include_dir = tpm_src_dir.join("OsslInclude/x64");
         copy_dir(
             &openssl_include_dir.join("openssl"),
             &tpm_openssl_include_dir.join("openssl"),
