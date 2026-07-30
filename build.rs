@@ -2,12 +2,17 @@
 
 //! Build script to compile the C TPM reference library.
 
+use std::collections::BTreeSet;
+use std::ffi::OsStr;
 use std::ffi::OsString;
+use std::fmt::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
-const SYMBOL_RENAME_FILE: &str = "tpm-symbol-renames.txt";
+const SYMBOL_PREFIX: &str = "ms_tcg_tpm_185_";
+/// Naming convention for the platform callbacks the TPM library expects.
+const PLATFORM_SYMBOL_PREFIX: &str = "_plat";
 
 const TPM_CRYPTO_LIBRARIES: &[&str] = &[
     "Tpm_CoreLib",
@@ -117,30 +122,37 @@ fn compile_tpm() -> Result<PathBuf, Box<dyn std::error::Error>> {
     Ok(lib_dir.join("lib"))
 }
 
-/// Copy the TPM archives and namespace the Rust/native ABI boundary.
+/// Copy the TPM archives, prefixing every symbol with [`SYMBOL_PREFIX`].
 ///
-/// TPM entry points called by Rust and references to Rust platform callbacks
-/// are renamed. Symbols used only within the native libraries are unchanged.
+/// This lets a binary link this crate alongside another copy of the TPM
+/// reference code without the two sets of symbols colliding.
 fn namespace_libraries(lib_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     let target = std::env::var("TARGET")?;
     let objcopy = env("TCG_TPM_OBJCOPY").unwrap_or_else(|| default_binary_tool("objcopy"));
+    let nm = env("TCG_TPM_NM").unwrap_or_else(|| default_binary_tool("nm"));
     println!("cargo:rustc-link-search=native={}", out_dir.display());
 
-    let rename_file = manifest_dir.join(SYMBOL_RENAME_FILE);
-    println!("cargo:rerun-if-changed={}", rename_file.display());
+    let source_archives: Vec<PathBuf> = TPM_CRYPTO_LIBRARIES
+        .iter()
+        .map(|library| {
+            lib_dir.join(if target.contains("windows-msvc") {
+                format!("{library}.lib")
+            } else {
+                format!("lib{library}.a")
+            })
+        })
+        .collect();
 
-    for library in TPM_CRYPTO_LIBRARIES {
-        let source_archive = lib_dir.join(if target.contains("windows-msvc") {
-            format!("{library}.lib")
-        } else {
-            format!("lib{library}.a")
-        });
+    let renames = symbol_renames(&nm, &source_archives)?;
+    let rename_file = out_dir.join("tpm-symbol-renames.txt");
+    fs_err::write(&rename_file, renames)?;
+
+    for (library, source_archive) in TPM_CRYPTO_LIBRARIES.iter().zip(&source_archives) {
         let dest_archive = out_dir.join(source_archive.file_name().unwrap());
         let output = Command::new(&objcopy)
             .arg(format!("--redefine-syms={}", rename_file.display()))
-            .arg(&source_archive)
+            .arg(source_archive)
             .arg(&dest_archive)
             .output()?;
         if !output.status.success() {
@@ -158,6 +170,63 @@ fn namespace_libraries(lib_dir: &Path) -> Result<(), Box<dyn std::error::Error>>
     }
 
     Ok(())
+}
+
+/// Build an `objcopy --redefine-syms` map covering the symbols the archives
+/// define, plus the platform callbacks they expect Rust to provide.
+fn symbol_renames(nm: &OsStr, archives: &[PathBuf]) -> Result<String, Box<dyn std::error::Error>> {
+    let mut symbols = list_symbols(nm, "--defined-only", archives)?;
+    // The platform callbacks are implemented in Rust, so the archives only
+    // reference them.
+    symbols.extend(
+        list_symbols(nm, "--undefined-only", archives)?
+            .into_iter()
+            .filter(|symbol| symbol.starts_with(PLATFORM_SYMBOL_PREFIX)),
+    );
+    // Anything that isn't a C identifier is linker metadata that is matched by
+    // name, such as MSVC's `@feat.00` or its COMDAT constants.
+    symbols.retain(|symbol| is_c_identifier(symbol));
+
+    let mut file = String::new();
+    for symbol in symbols {
+        writeln!(file, "{symbol} {SYMBOL_PREFIX}{symbol}")?;
+    }
+    Ok(file)
+}
+
+fn is_c_identifier(symbol: &str) -> bool {
+    let mut chars = symbol.chars();
+    chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// List the globally visible symbols in the given archives that match `filter`.
+fn list_symbols(
+    nm: &OsStr,
+    filter: &str,
+    archives: &[PathBuf],
+) -> Result<BTreeSet<String>, Box<dyn std::error::Error>> {
+    let output = Command::new(nm)
+        .arg(filter)
+        .arg("--extern-only")
+        .arg("--format=posix")
+        .args(archives)
+        .output()?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("nm failed to list TPM symbols\nstderr: {stderr}").into());
+    }
+
+    Ok(String::from_utf8(output.stdout)?
+        .lines()
+        .map(str::trim)
+        // `<archive>[<member>]:` headers are interleaved with the symbols
+        .filter(|line| !line.ends_with(':'))
+        .filter_map(|line| line.split_whitespace().next())
+        .map(str::to_owned)
+        .collect())
 }
 
 fn default_binary_tool(tool: &str) -> OsString {
