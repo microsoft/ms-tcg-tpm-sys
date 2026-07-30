@@ -33,18 +33,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // users can link against pre-built libs if they don't want to use the
     // version included in-tree
-    let lib_dir = match env("TCG_TPM_LIB_DIR") {
+    let source_archives = match env("TCG_TPM_LIB_DIR") {
         Some(var) => {
             let lib_dir = PathBuf::from(var);
             println!("cargo:rerun-if-changed={}", lib_dir.display());
-            lib_dir
+            let source_archives = source_archives(&lib_dir)?;
+            for archive in &source_archives {
+                println!("cargo:rerun-if-changed={}", archive.display());
+            }
+            source_archives
         }
-        None => compile_tpm()?,
+        // Archives built in-tree live in `OUT_DIR`, and watching those would
+        // make the build script rerun on every build.
+        None => source_archives(&compile_tpm()?)?,
     };
 
-    namespace_libraries(&lib_dir)?;
+    namespace_libraries(&source_archives)?;
 
     Ok(())
+}
+
+/// The archives the TPM build produces, in the same order as
+/// [`TPM_CRYPTO_LIBRARIES`].
+fn source_archives(lib_dir: &Path) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+    let target = std::env::var("TARGET")?;
+    Ok(TPM_CRYPTO_LIBRARIES
+        .iter()
+        .map(|library| {
+            lib_dir.join(if target.contains("windows-msvc") {
+                format!("{library}.lib")
+            } else {
+                format!("lib{library}.a")
+            })
+        })
+        .collect())
 }
 
 /// Compile the TPM C codebase to a statically linked set of libraries.
@@ -126,29 +148,17 @@ fn compile_tpm() -> Result<PathBuf, Box<dyn std::error::Error>> {
 ///
 /// This lets a binary link this crate alongside another copy of the TPM
 /// reference code without the two sets of symbols colliding.
-fn namespace_libraries(lib_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+fn namespace_libraries(source_archives: &[PathBuf]) -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
-    let target = std::env::var("TARGET")?;
     let objcopy = env("TCG_TPM_OBJCOPY").unwrap_or_else(|| default_binary_tool("objcopy"));
     let nm = env("TCG_TPM_NM").unwrap_or_else(|| default_binary_tool("nm"));
     println!("cargo:rustc-link-search=native={}", out_dir.display());
 
-    let source_archives: Vec<PathBuf> = TPM_CRYPTO_LIBRARIES
-        .iter()
-        .map(|library| {
-            lib_dir.join(if target.contains("windows-msvc") {
-                format!("{library}.lib")
-            } else {
-                format!("lib{library}.a")
-            })
-        })
-        .collect();
-
-    let renames = symbol_renames(&nm, &source_archives)?;
+    let renames = symbol_renames(&nm, source_archives)?;
     let rename_file = out_dir.join("tpm-symbol-renames.txt");
     fs_err::write(&rename_file, renames)?;
 
-    for (library, source_archive) in TPM_CRYPTO_LIBRARIES.iter().zip(&source_archives) {
+    for (library, source_archive) in TPM_CRYPTO_LIBRARIES.iter().zip(source_archives) {
         let dest_archive = out_dir.join(source_archive.file_name().unwrap());
         let output = Command::new(&objcopy)
             .arg(format!("--redefine-syms={}", rename_file.display()))
