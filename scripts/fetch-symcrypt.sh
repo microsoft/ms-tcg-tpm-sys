@@ -27,7 +27,7 @@ Usage: fetch-symcrypt.sh [--dest DIR] [--tag TAG] [--arch ARCH]
 
 Writes DIR/include and DIR/lib, then points SYMCRYPT_INCLUDE_DIR and
 SYMCRYPT_LIB_DIR at them via the workspace's .cargo/config.toml, so plain
-`cargo build --features symcrypt` picks them up. In GitHub Actions the
+`cargo build --no-default-features --features symcrypt` picks them up. In GitHub Actions the
 assignments are also appended to $GITHUB_ENV.
 EOF
 }
