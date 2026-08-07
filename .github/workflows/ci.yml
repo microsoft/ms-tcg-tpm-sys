@@ -41,6 +41,12 @@ jobs:
           - name: openssl (windows arm64)
             runner: windows-11-arm
             features: openssl,vendored
+          - name: symcrypt (linux)
+            runner: ubuntu-latest
+            features: symcrypt,vendored
+          - name: symcrypt (linux arm64)
+            runner: ubuntu-24.04-arm
+            features: symcrypt,vendored
     steps:
       - name: Authenticate to Azure
         uses: azure/login@v3
@@ -90,6 +96,13 @@ jobs:
       - name: Set up MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
+
+      # Exports SYMCRYPT_INCLUDE_DIR and SYMCRYPT_LIB_DIR via $GITHUB_ENV.
+      - name: Fetch SymCrypt
+        if: contains(matrix.features, 'symcrypt')
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./scripts/fetch-symcrypt.sh
 
       - name: Configure build tools
         if: runner.os == 'Windows'

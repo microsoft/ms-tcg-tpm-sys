@@ -14,12 +14,13 @@ some design decisions have been made with this in mind.
 
 The following features are enabled by default:
 
-- `openssl` - Include a dependency on `openssl-sys`, and include a link-time
-  check that it is present. The currently supported crypto backend requires
-  OpenSSL.
+- `openssl` - Use OpenSSL for every crypto role, and include a dependency on
+  `openssl-sys`.
 
 The following features are disabled by default:
 
+- `symcrypt` - Use SymCrypt for every crypto role (eventually). SymCrypt must be externally
+  provided.
 - `vendored` - Compile OpenSSL from source (corresponds to`openssl-sys/vendored`).
 
 ## Building
@@ -45,6 +46,22 @@ the following pre-built static libraries from the specified directory:
 Building OpenSSL may be a bit more tricky. See the `openssl` crate
 documentation for instructions on how to build + link against OpenSSL:
 <https://docs.rs/openssl/latest/openssl/#building>
+
+### SymCrypt
+
+The `symcrypt` feature does not build SymCrypt. Point `SYMCRYPT_INCLUDE_DIR` and
+`SYMCRYPT_LIB_DIR` at an existing build; both accept the target-prefixed forms
+the other env-vars do.
+
+`scripts/fetch-symcrypt.sh` stages a Linux build from the latest
+[`microsoft/openvmm-deps`](https://github.com/microsoft/openvmm-deps) release and
+sets both variables in the workspace's `.cargo/config.toml`, so no further setup
+is needed:
+
+```sh
+./scripts/fetch-symcrypt.sh
+cargo build --no-default-features --features symcrypt,vendored
+```
 
 The upstream TPM source is vendored as a git submodule under `TPM/`. After
 cloning, make sure to initialize submodules:
@@ -84,6 +101,8 @@ cargo run -p test-harness -- ./tpm.nvmem
   upstream C `Platform/` library is replaced by the Rust platform layer in
   `src/plat/`.
 - `TPM/` - Git submodule pointing at upstream `TrustedComputingGroup/TPM`.
+- `scripts/fetch-symcrypt.sh` - Stages a prebuilt SymCrypt for the `symcrypt`
+  feature.
 - `test-harness/` - A small sample binary that initializes the TPM, sends a
   few commands, and persists state to an on-disk `.nvmem` blob.
 
@@ -117,13 +136,16 @@ out by opening a GitHub Issue.
 ### Supported crypto backends
 
 While the underlying `TrustedComputingGroup/TPM` library does support multiple
-different crypto backends, at this time, the only supported crypto backend is
-OpenSSL 3.x.
+different crypto backends, at this time, the only fully supported crypto backend
+is OpenSSL 3.5 or newer.
 
 This particular backend was selected in order to seamlessly integrate
 `ms-tcg-tpm-sys` into a larger codebase that was already using OpenSSL 3.x.
 
-In the future, this crate may be updated to support linking against alternate
+A SymCrypt backend is in progress behind the `symcrypt` feature. It currently
+covers the symmetric and RSA roles only, leaving the rest on OpenSSL.
+
+In the future, this crate may be updated to support linking against more alternative
 crypto backends, though at this time, there is no concrete roadmap as to when
 that is going to happen.
 

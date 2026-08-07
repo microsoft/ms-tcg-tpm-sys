@@ -406,7 +406,7 @@ impl MsTpm185PlatformImpl {
 ///
 /// This is the least bad way we could find to ensure this. If we find a better
 /// way, then this should be removed.
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "symcrypt"))]
 #[expect(dead_code)]
 unsafe fn ensure_openssl_is_linked() {
     // SAFETY: SHA256_Init has no preconditions, and the `SHA256_CTX` structure
@@ -415,4 +415,24 @@ unsafe fn ensure_openssl_is_linked() {
         let mut ctx = std::mem::zeroed();
         openssl_sys::SHA256_Init(&mut ctx);
     }
+}
+
+/// This function is never called but is present to ensure symcrypt is linked
+/// in, which ensures that the C code can reference the crypto primitives.
+///
+/// This is the least bad way we could find to ensure this. If we find a better
+/// way, then this should be removed.
+#[cfg(feature = "symcrypt")]
+#[expect(dead_code)]
+fn ensure_symcrypt_is_linked() -> *const u8 {
+    // There is no `symcrypt-sys` crate to hang the library off of, so name it
+    // here. `build.rs` only supplies the search path.
+    #[link(name = "symcrypt", kind = "static")]
+    unsafe extern "C" {
+        /// `PCSYMCRYPT_HASH`, referenced rather than called so that no
+        /// signature has to be reproduced.
+        static SymCryptSha256Algorithm: u8;
+    }
+
+    &raw const SymCryptSha256Algorithm
 }
