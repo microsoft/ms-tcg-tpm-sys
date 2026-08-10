@@ -80,7 +80,7 @@ URL="https://github.com/${REPO}/releases/download/${TAG}/${ASSET}"
 echo "fetching SymCrypt from ${URL}" >&2
 
 STAGING="$(mktemp -d)"
-trap 'rm -r "$STAGING"' EXIT
+trap '[[ -e "$STAGING" ]] && rm -r "$STAGING"' EXIT
 
 # The release tarball nests the sysroot as `./sysroot.tar.gz`, so unwrap the
 # outer archive on the fly rather than spilling ~150MiB of unrelated artifacts
@@ -105,7 +105,9 @@ esac
 DEST="$(cd "$(dirname "$DEST")" && pwd)/${DEST_NAME}"
 
 # Replace the previous staging wholesale, so nothing stale survives an upgrade.
-rm -r "$DEST"
+if [[ -e "$DEST" ]]; then
+    rm -r "$DEST"
+fi
 mkdir -p "$DEST"
 mv "$STAGING/include" "$STAGING/lib" "$DEST/"
 
