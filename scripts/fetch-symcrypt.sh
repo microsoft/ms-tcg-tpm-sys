@@ -80,7 +80,7 @@ URL="https://github.com/${REPO}/releases/download/${TAG}/${ASSET}"
 echo "fetching SymCrypt from ${URL}" >&2
 
 STAGING="$(mktemp -d)"
-trap 'rm -rf "$STAGING"' EXIT
+trap 'rm -r "$STAGING"' EXIT
 
 # The release tarball nests the sysroot as `./sysroot.tar.gz`, so unwrap the
 # outer archive on the fly rather than spilling ~150MiB of unrelated artifacts
@@ -94,9 +94,19 @@ if [[ ! -f "$STAGING/lib/libsymcrypt.a" ]]; then
     exit 1
 fi
 
+# Resolve `--dest` to an absolute path before deleting anything.
+DEST_NAME="$(basename "$DEST")"
+case "$DEST_NAME" in
+    "" | "." | ".." | "/")
+        echo "refusing to stage SymCrypt into ${DEST}" >&2
+        exit 1
+        ;;
+esac
+DEST="$(cd "$(dirname "$DEST")" && pwd)/${DEST_NAME}"
+
+# Replace the previous staging wholesale, so nothing stale survives an upgrade.
+rm -r "$DEST"
 mkdir -p "$DEST"
-DEST="$(cd "$DEST" && pwd)"
-rm -rf "$DEST/include" "$DEST/lib"
 mv "$STAGING/include" "$STAGING/lib" "$DEST/"
 
 # Cargo applies `[env]` to build scripts, so this is what actually hands the
