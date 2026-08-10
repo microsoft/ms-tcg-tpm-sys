@@ -13,7 +13,7 @@ set -euo pipefail
 
 REPO="microsoft/openvmm-deps"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEST="${REPO_ROOT}/target/symcrypt"
+DEST="${REPO_ROOT}/.symcrypt"
 TAG=""
 ARCH=""
 
@@ -21,7 +21,7 @@ usage() {
     cat <<'EOF'
 Usage: fetch-symcrypt.sh [--dest DIR] [--tag TAG] [--arch ARCH]
 
-  --dest DIR   Where to stage SymCrypt. Default: <repo>/target/symcrypt
+  --dest DIR   Where to stage SymCrypt. Default: <repo>/.symcrypt
   --tag TAG    openvmm-deps release tag. Default: the latest release.
   --arch ARCH  x86_64 or aarch64. Default: derived from `uname -m`.
 

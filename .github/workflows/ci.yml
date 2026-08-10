@@ -20,7 +20,6 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
   RUSTDOCFLAGS: -D warnings
-  OPENVMM_DEPS_TAG: 0.3.0-121
 
 jobs:
   rust:
@@ -103,7 +102,7 @@ jobs:
         if: contains(matrix.features, 'symcrypt')
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./scripts/fetch-symcrypt.sh --tag "$OPENVMM_DEPS_TAG"
+        run: ./scripts/fetch-symcrypt.sh
 
       - name: Configure build tools
         if: runner.os == 'Windows'
