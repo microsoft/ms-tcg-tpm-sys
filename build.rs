@@ -126,6 +126,10 @@ mod tpm {
         let mut cmake_config = cmake::Config::new(&tpm_src_dir);
         let lib_dir = out_dir.join("lib");
         cmake_config
+            // Pin the configuration rather than letting `cmake` infer one from
+            // the Cargo profile, so the archive output directory below always
+            // matches.
+            .profile("RelWithDebInfo")
             // We only want the core library
             .define("Tpm_BuildOption_LibOnly", "1")
             // Building `install` (or `all`) also compiles the crypto providers
@@ -135,10 +139,7 @@ mod tpm {
             .build_target("Tpm_CoreLib")
             .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY", &lib_dir)
             // Multi-config generators otherwise append the config name.
-            .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG", &lib_dir)
-            .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE", &lib_dir)
             .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO", &lib_dir)
-            .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_MINSIZEREL", &lib_dir)
             .define("TPM_SOURCE_DIR", &tpm_src_dir)
             .define("user_TpmConfiguration_Dir", &tpm_config_dir)
             // The TPM's top-level CMake demands these even when SymCrypt isn't a
