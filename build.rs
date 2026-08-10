@@ -38,43 +38,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 mod backend {
     use std::path::PathBuf;
 
-    /// The TPM archives the OpenSSL backend produces, in link order.
-    ///
-    /// `Tpm_CryptoLib_Hash_Ossl` is an alias of the BnMath target, so it builds
-    /// no archive of its own.
-    const TPM_ARCHIVES_OPENSSL: &[&str] = &[
-        "Tpm_CoreLib",
-        "Tpm_CryptoLib_BnMath_Ossl",
-        "Tpm_CryptoLib_Symmetric_Ossl",
-        "Tpm_CryptoLib_Random_RandRef",
-        "Tpm_CryptoLib_Kdf_KdfRef",
-        "Tpm_CryptoLib_Math_TpmBigNum",
-        "Tpm_CryptoLib_RSA_RsaRef",
-        "Tpm_CryptoLib_ECC_EccRef",
-        "Tpm_CryptoLib_MLKEM_Ossl",
-        "Tpm_CryptoLib_MLDSA_Ossl",
-        "Tpm_CryptoLib_Common",
-    ];
-
-    /// The TPM archives the SymCrypt backend produces, in link order.
-    ///
-    /// `Tpm_CryptoLib_SymCrypt_Common` carries the environment dispatch and the
-    /// TPM/SymCrypt mapping helpers both shims share.
-    const TPM_ARCHIVES_SYMCRYPT: &[&str] = &[
-        "Tpm_CoreLib",
-        "Tpm_CryptoLib_BnMath_Ossl",
-        "Tpm_CryptoLib_Symmetric_SymCrypt",
-        "Tpm_CryptoLib_Random_RandRef",
-        "Tpm_CryptoLib_Kdf_KdfRef",
-        "Tpm_CryptoLib_Math_TpmBigNum",
-        "Tpm_CryptoLib_RSA_SymCrypt",
-        "Tpm_CryptoLib_ECC_EccRef",
-        "Tpm_CryptoLib_MLKEM_Ossl",
-        "Tpm_CryptoLib_MLDSA_Ossl",
-        "Tpm_CryptoLib_SymCrypt_Common",
-        "Tpm_CryptoLib_Common",
-    ];
-
     /// The crypto backend the `openssl` / `symcrypt` features select.
     pub(crate) enum Backend {
         OpenSsl,
@@ -119,8 +82,8 @@ mod backend {
         /// The TPM archives to namespace and link, in link order.
         pub(crate) fn tpm_archives(&self) -> &'static [&'static str] {
             match self {
-                Self::OpenSsl => TPM_ARCHIVES_OPENSSL,
-                Self::SymCrypt { .. } => TPM_ARCHIVES_SYMCRYPT,
+                Self::OpenSsl => super::openssl::TPM_ARCHIVES,
+                Self::SymCrypt { .. } => super::symcrypt::TPM_ARCHIVES,
             }
         }
     }
@@ -274,20 +237,34 @@ mod openssl {
         cmake_config
             .define("OSSL_INCLUDE_SUBDIR", &include_dir)
             .define("CMAKE_C_STANDARD_INCLUDE_DIRECTORIES", &include_dir)
-            .define("cryptoLib_Symmetric", "Ossl")
-            .define("cryptoLib_Hash", "Ossl")
             .define("cryptoLib_BnMath", "Ossl")
-            .define("cryptoLib_MLKEM", "Ossl")
-            .define("cryptoLib_MLDSA", "Ossl")
+            .define("cryptoLib_Symmetric", "Ossl")
             .define("cryptoLib_Random", "RandRef")
             .define("cryptoLib_Kdf", "KdfRef")
             .define("cryptoLib_Math", "TpmBigNum")
             .define("cryptoLib_RSA", "RsaRef")
             .define("cryptoLib_ECC", "EccRef")
+            .define("cryptoLib_MLKEM", "Ossl")
+            .define("cryptoLib_MLDSA", "Ossl")
             .register_dep("openssl");
 
         Ok(())
     }
+
+    /// The TPM archives the OpenSSL backend produces, in link order.
+    pub(crate) const TPM_ARCHIVES: &[&str] = &[
+        "Tpm_CoreLib",
+        "Tpm_CryptoLib_BnMath_Ossl",
+        "Tpm_CryptoLib_Symmetric_Ossl",
+        "Tpm_CryptoLib_Random_RandRef",
+        "Tpm_CryptoLib_Kdf_KdfRef",
+        "Tpm_CryptoLib_Math_TpmBigNum",
+        "Tpm_CryptoLib_RSA_RsaRef",
+        "Tpm_CryptoLib_ECC_EccRef",
+        "Tpm_CryptoLib_MLKEM_Ossl",
+        "Tpm_CryptoLib_MLDSA_Ossl",
+        "Tpm_CryptoLib_Common",
+    ];
 }
 
 /// Everything specific to the SymCrypt crypto backend.
@@ -320,19 +297,34 @@ mod symcrypt {
             .define("SYMCRYPT_LIB_DIR", lib_dir)
             .define("SYMCRYPT_COMMON_LIB", &archive)
             .define("SYMCRYPT_ENV_LIB", &archive)
-            .define("cryptoLib_Symmetric", "SymCrypt")
-            .define("cryptoLib_Hash", "Ossl")
             .define("cryptoLib_BnMath", "Ossl")
-            .define("cryptoLib_MLKEM", "Ossl")
-            .define("cryptoLib_MLDSA", "Ossl")
+            .define("cryptoLib_Symmetric", "SymCrypt")
             .define("cryptoLib_Random", "RandRef")
             .define("cryptoLib_Kdf", "KdfRef")
             .define("cryptoLib_Math", "TpmBigNum")
             .define("cryptoLib_RSA", "SymCrypt")
-            .define("cryptoLib_ECC", "EccRef");
+            .define("cryptoLib_ECC", "EccRef")
+            .define("cryptoLib_MLKEM", "Ossl")
+            .define("cryptoLib_MLDSA", "Ossl");
 
         Ok(())
     }
+
+    /// The TPM archives the SymCrypt backend produces, in link order.
+    pub(crate) const TPM_ARCHIVES: &[&str] = &[
+        "Tpm_CoreLib",
+        "Tpm_CryptoLib_BnMath_Ossl",
+        "Tpm_CryptoLib_Symmetric_SymCrypt",
+        "Tpm_CryptoLib_Random_RandRef",
+        "Tpm_CryptoLib_Kdf_KdfRef",
+        "Tpm_CryptoLib_Math_TpmBigNum",
+        "Tpm_CryptoLib_RSA_SymCrypt",
+        "Tpm_CryptoLib_ECC_EccRef",
+        "Tpm_CryptoLib_MLKEM_Ossl",
+        "Tpm_CryptoLib_MLDSA_Ossl",
+        "Tpm_CryptoLib_SymCrypt_Common",
+        "Tpm_CryptoLib_Common",
+    ];
 }
 
 /// Prefixing the TPM's symbols so a binary can link this crate alongside
