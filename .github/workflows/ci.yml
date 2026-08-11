@@ -41,12 +41,25 @@ jobs:
           - name: openssl (windows arm64)
             runner: windows-11-arm
             features: openssl,vendored
+          # The prebuilt SymCrypt is a musl build
           - name: symcrypt (linux)
             runner: ubuntu-latest
             features: symcrypt,vendored
+            target: x86_64-unknown-linux-musl
           - name: symcrypt (linux arm64)
             runner: ubuntu-24.04-arm
             features: symcrypt,vendored
+            target: aarch64-unknown-linux-musl
+    env:
+      # Only consulted when building for the corresponding musl target. The TPM's
+      # CMake enables CXX even though `Tpm_BuildOption_LibOnly` compiles only C,
+      # so the C++ compiler just has to exist.
+      CC_x86_64_unknown_linux_musl: musl-gcc
+      CC_aarch64_unknown_linux_musl: musl-gcc
+      CXX_x86_64_unknown_linux_musl: g++
+      CXX_aarch64_unknown_linux_musl: g++
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
     steps:
       - name: Authenticate to Azure
         uses: azure/login@v3
@@ -79,11 +92,19 @@ jobs:
       - name: Install Rust components
         run: rustup component add clippy rustfmt
 
+      - name: Install Rust target
+        if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
+
       - name: Install build dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake perl pkg-config
+
+      - name: Install musl build dependencies
+        if: contains(matrix.target, 'musl')
+        run: sudo apt-get install -y musl-tools
 
       - name: Install OpenSSL build dependencies
         if: runner.os == 'Windows'
@@ -123,29 +144,29 @@ jobs:
       - name: Clippy
         id: clippy
         continue-on-error: true
-        run: cargo clippy --locked --workspace --all-targets --no-default-features --features ${{ matrix.features }}
+        run: cargo clippy --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} --workspace --all-targets --no-default-features --features ${{ matrix.features }}
 
       - name: Test
         id: test
         continue-on-error: true
-        run: cargo test --locked --workspace --no-default-features --features ${{ matrix.features }}
+        run: cargo test --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} --workspace --no-default-features --features ${{ matrix.features }}
 
       - name: Run test-harness (cold init)
         id: cold_init
         continue-on-error: true
         run: |
-          cargo run --locked -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem
+          cargo run --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem
 
       - name: Run test-harness (warm restore)
         id: warm_restore
         continue-on-error: true
         run: |
-          cargo run --locked -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem
+          cargo run --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem
 
       - name: Doc
         id: doc
         continue-on-error: true
-        run: cargo doc --locked --workspace --no-deps --no-default-features --features ${{ matrix.features }}
+        run: cargo doc --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} --workspace --no-deps --no-default-features --features ${{ matrix.features }}
 
       - name: Report and fail checks
         if: always()
