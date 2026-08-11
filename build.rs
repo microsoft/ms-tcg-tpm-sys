@@ -323,7 +323,9 @@ mod symcrypt {
         "Tpm_CryptoLib_ECC_EccRef",
         "Tpm_CryptoLib_MLKEM_Ossl",
         "Tpm_CryptoLib_MLDSA_Ossl",
-        "Tpm_CryptoLib_SymCrypt_Common",
+        // Don't include the TPM's SymCrypt callbacks, instead we include only
+        // the needed bits of this lib in our own symcrypt_support.c
+        //"Tpm_CryptoLib_SymCrypt_Common",
         "Tpm_CryptoLib_Common",
     ];
 }

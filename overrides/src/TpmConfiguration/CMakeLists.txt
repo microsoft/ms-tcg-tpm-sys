@@ -34,6 +34,14 @@ target_include_directories(${PROJECT_NAME}
 target_sources(${PROJECT_NAME} INTERFACE
     "$<BUILD_INTERFACE:$<$<STREQUAL:$<TARGET_PROPERTY:NAME>,Tpm_CoreLib>:${CMAKE_CURRENT_SOURCE_DIR}/../runtime_state.c>>"
 )
+
+# The SymCrypt backend links Tpm_CryptoLib_SymCrypt_Common out of the build, so
+# inject the one helper from it that Tpm_CoreLib still needs.
+if(cryptoLib_Symmetric STREQUAL "SymCrypt")
+    target_sources(${PROJECT_NAME} INTERFACE
+        "$<BUILD_INTERFACE:$<$<STREQUAL:$<TARGET_PROPERTY:NAME>,Tpm_CoreLib>:${CMAKE_CURRENT_SOURCE_DIR}/../symcrypt_support.c>>"
+    )
+endif()
 ##########################################################
 
 # MSVC: Warn on most things, and treat them as errors.
