@@ -195,8 +195,6 @@
 
 // number of vendor properties, must currently be 1.
 #define MAX_VENDOR_PROPERTY                 (1)
-// max size of a TPM2B_VENDOR_PROPERTY
-#define MAX_VENDOR_PROPERTY_2B_SIZE (512)
 
 //***********************************************
 // Enable VENDOR_PERMANENT_AUTH_HANDLE?

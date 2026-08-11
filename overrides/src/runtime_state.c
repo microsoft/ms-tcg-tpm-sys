@@ -24,6 +24,7 @@
 #define SESSION_C
 #include "Tpm.h"
 #include "Global.h"
+#include <private/CryptCmac_fp.h>
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
@@ -57,18 +58,13 @@ static const uint64_t s_RuntimeStateHeaderMagic = 0x545354524D505456;
 //
 // Increment this revision on every change to the number or type of global static variables used by the TPM engine.
 //
-// Revision 4 (v1.85 update):
-//  - g_platformUniqueDetails removed: the v1.85 replacement g_platformUniqueAuth
-//    only exists when VENDOR_PERMANENT_AUTH_ENABLED == YES, which our build
-//    disables.
-//  - g_inFailureMode, g_forceFailureMode, s_failLine, s_failCode removed:
-//    failure-mode state is now owned by the platform layer (Rust) and is
-//    serialized separately via MsTpm185PlatformState.
-//  - s_selfHealTimer / s_lockoutTimer removed: they're now gated by
-//    `#if !ACCUMULATE_SELF_HEAL_TIMER` in Global.h. Our build sets
-//    ACCUMULATE_SELF_HEAL_TIMER == YES, so neither global exists.
-//
-static const uint32_t s_RuntimeStateRevision = 4;
+static const uint32_t s_RuntimeStateRevision = 0x10;
+
+// The variable table below is only complete for the build switches this profile
+// selects; flipping any of these adds a global that would silently go unsaved.
+TPM_STATIC_ASSERT(ACCUMULATE_SELF_HEAL_TIMER == YES);  // else s_selfHealTimer + s_lockoutTimer
+TPM_STATIC_ASSERT(VENDOR_PERMANENT_AUTH_ENABLED == NO);  // else g_platformUniqueAuth
+TPM_STATIC_ASSERT(CLOCK_STOPS == YES);  // else g_timeEpoch aliases gp.timeEpoch
 
 //
 // Contains information about a single run-time variable.
@@ -92,8 +88,11 @@ typedef struct tag_TPM_RUNTIME_STATE_ENTRY
 //
 static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
     {
+        {(char *)&g_implementedAlgorithms, sizeof(g_implementedAlgorithms)},
+        {(char *)&g_toTest, sizeof(g_toTest)},
         {(char *)&g_exclusiveAuditSession, sizeof(g_exclusiveAuditSession)},
         {(char *)&g_time, sizeof(g_time)},
+        {(char *)&g_timeEpoch, sizeof(g_timeEpoch)},
         {(char *)&g_phEnable, sizeof(g_phEnable)},
         {(char *)&g_pcrReConfig, sizeof(g_pcrReConfig)},
         {(char *)&g_DRTMHandle, sizeof(g_DRTMHandle)},
@@ -106,48 +105,83 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         {(char *)&g_prevOrderlyState, sizeof(g_prevOrderlyState)},
         {(char *)&g_nvOk, sizeof(g_nvOk)},
         {(char *)&g_NvStatus, sizeof(g_NvStatus)},
-        // g_platformUniqueAuth (v1.85) / g_platformUniqueDetails (older) is
-        // only declared when VENDOR_PERMANENT_AUTH_ENABLED == YES. Our build
-        // disables it (see TpmProfile_Common.h), so there's no such global to
-        // save/restore.
         {(char *)&gp, sizeof(gp)},
         {(char *)&go, sizeof(go)},
         {(char *)&gc, sizeof(gc)},
         {(char *)&gr, sizeof(gr)},
+        {(char *)&g_cryptoSelfTestState, sizeof(g_cryptoSelfTestState)},
         {(char *)&g_manufactured, sizeof(g_manufactured)},
         {(char *)&g_initialized, sizeof(g_initialized)},
+        {(char *)&g_initCompleted, sizeof(g_initCompleted)},
         {(char *)s_sessionHandles, sizeof(s_sessionHandles)},
         {(char *)s_attributes, sizeof(s_attributes)},
         {(char *)s_associatedHandles, sizeof(s_associatedHandles)},
         {(char *)s_nonceCaller, sizeof(s_nonceCaller)},
         {(char *)s_inputAuthValues, sizeof(s_inputAuthValues)},
-        // {(char *)s_usedSessions, sizeof(s_usedSessions)}, // pointer
         {(char *)&s_encryptSessionIndex, sizeof(s_encryptSessionIndex)},
         {(char *)&s_decryptSessionIndex, sizeof(s_decryptSessionIndex)},
         {(char *)&s_auditSessionIndex, sizeof(s_auditSessionIndex)},
         {(char *)&s_cpHashForCommandAudit, sizeof(s_cpHashForCommandAudit)},
         {(char *)&s_DAPendingOnNV, sizeof(s_DAPendingOnNV)},
-        // s_selfHealTimer and s_lockoutTimer are only declared when
-        // ACCUMULATE_SELF_HEAL_TIMER == NO. Our build has it YES, so they
-        // don't exist as separate globals (the equivalent state is folded
-        // into gp.lockOutAuthEnabled / gp.failedTries / etc.).
-        // {(char *)&s_evictNvEnd, sizeof(s_evictNvEnd)},  // pointer
+        {(char *)&s_evictNvEnd, sizeof(s_evictNvEnd)},
         {(char *)&s_indexOrderlyRam, sizeof(s_indexOrderlyRam)},
         {(char *)&s_maxCounter, sizeof(s_maxCounter)},
-        {(char *)&s_cachedNvIndex, sizeof(s_cachedNvIndex)},
-        // {(char *)&s_cachedNvRef, sizeof(s_cachedNvRef)},  // pointer
-        // {(char *)&s_cachedNvRamRef, sizeof(s_cachedNvRamRef)}, // pointer
         {(char *)s_objects, sizeof(s_objects)},
         {(char *)s_pcrs, sizeof(s_pcrs)},
         {(char *)s_sessions, sizeof(s_sessions)},
         {(char *)&s_oldestSavedSession, sizeof(s_oldestSavedSession)},
         {(char *)&s_freeSessionSlots, sizeof(s_freeSessionSlots)},
-        // Failure-mode state (g_inFailureMode, g_forceFailureMode, s_failLine,
-        // s_failCode) used to live in the TPM core library, but in v1.85 it
-        // moved to the platform layer. The Rust platform layer owns this state
-        // and serializes it separately.
-        //
+        {(char *)&s_ActUpdated, sizeof(s_ActUpdated)},
+
+        // Deliberately excluded, all re-initialized before use within a single
+        // ExecuteCommand() and therefore never live across a save/restore:
+        //  - s_actionIoBuffer / s_actionIoAllocation (IoBuffers.c)
+        //  - failure_response_buffer (TpmFail.c)
+        //  - primeLimit (CryptPrimeSieve.c)
+        //  - the static scratch buffers in AlgorithmTests.c
 };
+
+// Sequence objects live in s_objects type-punned as HASH_OBJECT, and cache a
+// HASH_DEF* (and, for CMAC, two method pointers) that are addresses in the
+// saving process's image. Rebuild them the way CryptoHash_ImportState does
+// instead of trusting whatever came out of the blob.
+static void
+RebindSequenceObjectMethods(void)
+{
+    for (uint32_t i = 0; i < ARRAY_SIZE(s_objects); i++)
+    {
+        OBJECT *object = &s_objects[i];
+
+        if (object->attributes.occupied != TRUE || !ObjectIsSequence(object))
+        {
+            continue;
+        }
+
+        HASH_OBJECT *sequence = (HASH_OBJECT *)object;
+
+        // An event sequence runs one hash per PCR bank; hash and HMAC sequences
+        // only ever use the first slot.
+        int count = (sequence->attributes.eventSeq) ? HASH_COUNT : 1;
+
+        for (int j = 0; j < count; j++)
+        {
+            HASH_STATE *hash = &sequence->state.hashState[j];
+
+#ifdef HASH_STATE_SMAC
+            if (hash->type == HASH_STATE_SMAC)
+            {
+                hash->def = NULL;
+                hash->state.smac.smacMethods.data = CryptCmacData;
+                hash->state.smac.smacMethods.end = CryptCmacEnd;
+                continue;
+            }
+#endif
+            // Yields the null descriptor for TPM_ALG_NULL or an unknown
+            // algorithm, so a corrupt blob can't leave a stale pointer behind.
+            hash->def = CryptoHash_GetHashDef(hash->hashAlg);
+        }
+    }
+}
 
 static uint32_t
 GetRuntimeStateSize(void)
@@ -243,6 +277,12 @@ int INJECTED_ApplyRuntimeState(
 
         pRuntimeState += s_TpmRuntimeVariables[i].cbVariableSize;
     }
+
+    // The NV Index cache holds a raw pointer into s_indexOrderlyRam and is not
+    // part of the blob, so drop whatever this process happened to have cached.
+    NvIndexCacheInit();
+
+    RebindSequenceObjectMethods();
 
     return 0;
 }
