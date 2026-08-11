@@ -58,6 +58,24 @@ mod ffi {
     }
 }
 
+#[cfg(feature = "symcrypt")]
+fn init_symcrypt() {
+    // There is no `symcrypt-sys` crate to hang the library off of, so name it
+    // here. `build.rs` only supplies the search path.
+    #[link(name = "symcrypt", kind = "static")]
+    unsafe extern "C" {
+        safe fn SymCryptModuleInit(api: u32, minor: u32);
+    }
+
+    // Must match `SYMCRYPT_CODE_VERSION_{API,MINOR}` in the SymCrypt headers;
+    // SymCrypt fatally aborts if the module doesn't support the request.
+    const SYMCRYPT_CODE_VERSION_API: u32 = 103;
+    const SYMCRYPT_CODE_VERSION_MINOR: u32 = 13;
+
+    static INIT: std::sync::Once = std::sync::Once::new();
+    INIT.call_once(|| SymCryptModuleInit(SYMCRYPT_CODE_VERSION_API, SYMCRYPT_CODE_VERSION_MINOR));
+}
+
 /// Serde de/serializable representation of the ms-tcg-tpm-sys library's runtime
 /// state (both core C library runtime, and Rust platform runtime)
 #[derive(Clone, Serialize, Deserialize)]
@@ -95,6 +113,9 @@ impl MsTpm185Platform {
         init_kind: InitKind<'_>,
     ) -> Result<MsTpm185Platform, Error> {
         tracing::trace!("Initializing TPM platform...");
+
+        #[cfg(feature = "symcrypt")]
+        init_symcrypt();
 
         let mut maybe_platform = PLATFORM.try_lock().map_err(|_| Error::AlreadyInitialized)?;
 
@@ -415,24 +436,4 @@ unsafe fn ensure_openssl_is_linked() {
         let mut ctx = std::mem::zeroed();
         openssl_sys::SHA256_Init(&mut ctx);
     }
-}
-
-/// This function is never called but is present to ensure symcrypt is linked
-/// in, which ensures that the C code can reference the crypto primitives.
-///
-/// This is the least bad way we could find to ensure this. If we find a better
-/// way, then this should be removed.
-#[cfg(feature = "symcrypt")]
-#[expect(dead_code)]
-fn ensure_symcrypt_is_linked() -> *const u8 {
-    // There is no `symcrypt-sys` crate to hang the library off of, so name it
-    // here. `build.rs` only supplies the search path.
-    #[link(name = "symcrypt", kind = "static")]
-    unsafe extern "C" {
-        /// `PCSYMCRYPT_HASH`, referenced rather than called so that no
-        /// signature has to be reproduced.
-        static SymCryptSha256Algorithm: u8;
-    }
-
-    &raw const SymCryptSha256Algorithm
 }
