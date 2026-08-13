@@ -251,6 +251,9 @@ mod openssl {
     /// The TPM archives the OpenSSL backend produces, in link order.
     pub(crate) const TPM_ARCHIVES: &[&str] = &[
         "Tpm_CoreLib",
+        // These two are folded into BnMath_Ossl
+        //"Tpm_CryptoLib_Symmetric_Ossl",
+        //"Tpm_CryptoLib_Hash_Ossl",
         "Tpm_CryptoLib_Random_RandRef",
         "Tpm_CryptoLib_Kdf_KdfRef",
         "Tpm_CryptoLib_Math_TpmBigNum",
