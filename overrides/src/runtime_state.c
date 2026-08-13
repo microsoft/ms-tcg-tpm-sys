@@ -141,7 +141,7 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         //  - the static scratch buffers in AlgorithmTests.c
 };
 
-// Sequence objects live in s_objects type-punned as HASH_OBJECT, and cache a
+// Sequence objects live in s_objects type-punned as SEQUENCE_OBJECT, and cache a
 // HASH_DEF* (and, for CMAC, two method pointers) that are addresses in the
 // saving process's image. Rebuild them the way CryptoHash_ImportState does
 // instead of trusting whatever came out of the blob.
@@ -157,7 +157,7 @@ RebindSequenceObjectMethods(void)
             continue;
         }
 
-        HASH_OBJECT *sequence = (HASH_OBJECT *)object;
+        SEQUENCE_OBJECT *sequence = (SEQUENCE_OBJECT *)object;
 
         // An event sequence runs one hash per PCR bank; hash and HMAC sequences
         // only ever use the first slot.
