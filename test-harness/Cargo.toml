@@ -7,7 +7,9 @@ edition = "2024"
 [features]
 default = ["openssl", "vendored"]
 
+# `openssl` and `symcrypt` are mutually exclusive; see the root crate's manifest.
 openssl = ["ms-tcg-tpm-sys/openssl"]
+symcrypt = ["ms-tcg-tpm-sys/symcrypt"]
 vendored = ["ms-tcg-tpm-sys/vendored"]
 
 [dependencies]

@@ -11,7 +11,14 @@ categories = ["cryptography", "external-ffi-bindings"]
 [features]
 default = ["openssl"]
 
+# Crypto backend selection. `openssl` and `symcrypt` are mutually exclusive, and
+# exactly one of them must be enabled.
 openssl = ["dep:openssl-sys"]
+# The SymCrypt backend is a work in progress, openssl is still used in parts.
+#
+# TODO: drop `dep:openssl-sys` from this feature and combining this with `vendored`
+# should become an error rather than a no-op.
+symcrypt = ["dep:openssl-sys"]
 vendored = ["openssl-sys?/vendored"]
 
 [dependencies]
