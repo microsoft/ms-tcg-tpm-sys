@@ -234,9 +234,11 @@ mod openssl {
             .define("OSSL_INCLUDE_SUBDIR", &include_dir)
             .define("CMAKE_C_STANDARD_INCLUDE_DIRECTORIES", &include_dir)
             .define("cryptoLib_Symmetric", "Ossl")
+            .define("cryptoLib_Hash", "Ossl")
             .define("cryptoLib_Random", "RandRef")
             .define("cryptoLib_Kdf", "KdfRef")
             .define("cryptoLib_Math", "TpmBigNum")
+            .define("cryptoLib_BnMath", "Ossl")
             .define("cryptoLib_RSA", "RsaRef")
             .define("cryptoLib_ECC", "EccRef")
             .define("cryptoLib_MLKEM", "Ossl")
@@ -249,10 +251,10 @@ mod openssl {
     /// The TPM archives the OpenSSL backend produces, in link order.
     pub(crate) const TPM_ARCHIVES: &[&str] = &[
         "Tpm_CoreLib",
-        "Tpm_CryptoLib_BnMath_Ossl",
         "Tpm_CryptoLib_Random_RandRef",
         "Tpm_CryptoLib_Kdf_KdfRef",
         "Tpm_CryptoLib_Math_TpmBigNum",
+        "Tpm_CryptoLib_BnMath_Ossl",
         "Tpm_CryptoLib_RSA_RsaRef",
         "Tpm_CryptoLib_ECC_EccRef",
         "Tpm_CryptoLib_MLKEM_Ossl",
@@ -292,9 +294,11 @@ mod symcrypt {
             .define("SYMCRYPT_COMMON_LIB", &archive)
             .define("SYMCRYPT_ENV_LIB", &archive)
             .define("cryptoLib_Symmetric", "SymCrypt")
+            .define("cryptoLib_Hash", "Ossl")
             .define("cryptoLib_Random", "RandRef")
             .define("cryptoLib_Kdf", "KdfRef")
             .define("cryptoLib_Math", "TpmBigNum")
+            .define("cryptoLib_BnMath", "Ossl")
             .define("cryptoLib_RSA", "RsaRef")
             .define("cryptoLib_ECC", "EccRef")
             .define("cryptoLib_MLKEM", "Ossl")
@@ -310,6 +314,7 @@ mod symcrypt {
         "Tpm_CryptoLib_Random_RandRef",
         "Tpm_CryptoLib_Kdf_KdfRef",
         "Tpm_CryptoLib_Math_TpmBigNum",
+        "Tpm_CryptoLib_BnMath_Ossl",
         "Tpm_CryptoLib_RSA_RsaRef",
         "Tpm_CryptoLib_ECC_EccRef",
         "Tpm_CryptoLib_MLKEM_Ossl",
