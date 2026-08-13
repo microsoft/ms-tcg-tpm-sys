@@ -292,13 +292,12 @@ mod symcrypt {
             .define("SYMCRYPT_INCLUDE_DIR", include_dir)
             .define("SYMCRYPT_LIB_DIR", lib_dir)
             .define("SYMCRYPT_COMMON_LIB", &archive)
-            .define("SYMCRYPT_ENV_LIB", &archive)
             .define("cryptoLib_Symmetric", "SymCrypt")
-            .define("cryptoLib_Hash", "Ossl")
+            .define("cryptoLib_Hash", "SymCrypt")
             .define("cryptoLib_Random", "RandRef")
             .define("cryptoLib_Kdf", "KdfRef")
             .define("cryptoLib_Math", "TpmBigNum")
-            .define("cryptoLib_BnMath", "Ossl")
+            .define("cryptoLib_BnMath", "SymCrypt")
             .define("cryptoLib_RSA", "RsaRef")
             .define("cryptoLib_ECC", "EccRef")
             .define("cryptoLib_MLKEM", "Ossl")
@@ -311,17 +310,16 @@ mod symcrypt {
     pub(crate) const TPM_ARCHIVES: &[&str] = &[
         "Tpm_CoreLib",
         "Tpm_CryptoLib_Symmetric_SymCrypt",
+        "Tpm_CryptoLib_Hash_SymCrypt",
         "Tpm_CryptoLib_Random_RandRef",
         "Tpm_CryptoLib_Kdf_KdfRef",
         "Tpm_CryptoLib_Math_TpmBigNum",
-        "Tpm_CryptoLib_BnMath_Ossl",
+        "Tpm_CryptoLib_BnMath_SymCrypt",
         "Tpm_CryptoLib_RSA_RsaRef",
         "Tpm_CryptoLib_ECC_EccRef",
         "Tpm_CryptoLib_MLKEM_Ossl",
         "Tpm_CryptoLib_MLDSA_Ossl",
-        // Don't include the TPM's SymCrypt callbacks, instead we include only
-        // the needed bits of this lib in our own symcrypt_support.c
-        //"Tpm_CryptoLib_SymCrypt_Common",
+        "Tpm_CryptoLib_SymCrypt_Common",
         "Tpm_CryptoLib_Common",
     ];
 }
