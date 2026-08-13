@@ -298,7 +298,7 @@ mod symcrypt {
             .define("cryptoLib_Kdf", "KdfRef")
             .define("cryptoLib_Math", "TpmBigNum")
             .define("cryptoLib_BnMath", "SymCrypt")
-            .define("cryptoLib_RSA", "RsaRef")
+            .define("cryptoLib_RSA", "SymCrypt")
             .define("cryptoLib_ECC", "EccRef")
             .define("cryptoLib_MLKEM", "Ossl")
             .define("cryptoLib_MLDSA", "Ossl");
@@ -315,7 +315,7 @@ mod symcrypt {
         "Tpm_CryptoLib_Kdf_KdfRef",
         "Tpm_CryptoLib_Math_TpmBigNum",
         "Tpm_CryptoLib_BnMath_SymCrypt",
-        "Tpm_CryptoLib_RSA_RsaRef",
+        "Tpm_CryptoLib_RSA_SymCrypt",
         "Tpm_CryptoLib_ECC_EccRef",
         "Tpm_CryptoLib_MLKEM_Ossl",
         "Tpm_CryptoLib_MLDSA_Ossl",
