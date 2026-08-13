@@ -140,12 +140,7 @@ mod tpm {
             .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY", &lib_dir)
             // Multi-config generators otherwise append the config name.
             .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO", &lib_dir)
-            .define("TPM_SOURCE_DIR", &tpm_src_dir)
-            .define("user_TpmConfiguration_Dir", &tpm_config_dir)
-            // The TPM's top-level CMake demands these even when SymCrypt isn't a
-            // selected provider. `symcrypt::configure` overrides them when it is.
-            .define("SYMCRYPT_INCLUDE_DIR", "SYMCRYPT-UNUSED")
-            .define("SYMCRYPT_LIB_DIR", "SYMCRYPT-UNUSED");
+            .define("user_TpmConfiguration_Dir", &tpm_config_dir);
 
         if util::is_windows_msvc()? {
             // Fix CRT mismatch warnings
@@ -238,7 +233,6 @@ mod openssl {
         cmake_config
             .define("OSSL_INCLUDE_SUBDIR", &include_dir)
             .define("CMAKE_C_STANDARD_INCLUDE_DIRECTORIES", &include_dir)
-            .define("cryptoLib_BnMath", "Ossl")
             .define("cryptoLib_Symmetric", "Ossl")
             .define("cryptoLib_Random", "RandRef")
             .define("cryptoLib_Kdf", "KdfRef")
@@ -256,7 +250,6 @@ mod openssl {
     pub(crate) const TPM_ARCHIVES: &[&str] = &[
         "Tpm_CoreLib",
         "Tpm_CryptoLib_BnMath_Ossl",
-        "Tpm_CryptoLib_Symmetric_Ossl",
         "Tpm_CryptoLib_Random_RandRef",
         "Tpm_CryptoLib_Kdf_KdfRef",
         "Tpm_CryptoLib_Math_TpmBigNum",
@@ -298,12 +291,11 @@ mod symcrypt {
             .define("SYMCRYPT_LIB_DIR", lib_dir)
             .define("SYMCRYPT_COMMON_LIB", &archive)
             .define("SYMCRYPT_ENV_LIB", &archive)
-            .define("cryptoLib_BnMath", "Ossl")
             .define("cryptoLib_Symmetric", "SymCrypt")
             .define("cryptoLib_Random", "RandRef")
             .define("cryptoLib_Kdf", "KdfRef")
             .define("cryptoLib_Math", "TpmBigNum")
-            .define("cryptoLib_RSA", "SymCrypt")
+            .define("cryptoLib_RSA", "RsaRef")
             .define("cryptoLib_ECC", "EccRef")
             .define("cryptoLib_MLKEM", "Ossl")
             .define("cryptoLib_MLDSA", "Ossl");
@@ -314,12 +306,11 @@ mod symcrypt {
     /// The TPM archives the SymCrypt backend produces, in link order.
     pub(crate) const TPM_ARCHIVES: &[&str] = &[
         "Tpm_CoreLib",
-        "Tpm_CryptoLib_BnMath_Ossl",
         "Tpm_CryptoLib_Symmetric_SymCrypt",
         "Tpm_CryptoLib_Random_RandRef",
         "Tpm_CryptoLib_Kdf_KdfRef",
         "Tpm_CryptoLib_Math_TpmBigNum",
-        "Tpm_CryptoLib_RSA_SymCrypt",
+        "Tpm_CryptoLib_RSA_RsaRef",
         "Tpm_CryptoLib_ECC_EccRef",
         "Tpm_CryptoLib_MLKEM_Ossl",
         "Tpm_CryptoLib_MLDSA_Ossl",
