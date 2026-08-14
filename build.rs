@@ -36,32 +36,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 /// Which set of crypto implementations the TPM gets built against.
 mod backend {
-    use std::path::PathBuf;
-
     /// The crypto backend the `openssl` / `symcrypt` features select.
     pub(crate) enum Backend {
         OpenSsl,
         /// Where an externally built SymCrypt lives. `scripts/fetch-symcrypt.sh`
         /// stages one that satisfies this.
-        SymCrypt {
-            include_dir: PathBuf,
-            lib_dir: PathBuf,
-        },
+        SymCrypt,
     }
 
     impl Backend {
         pub(crate) fn from_env() -> Result<Self, Box<dyn std::error::Error>> {
-            let dir = |name: &str, backend: &str| -> Result<PathBuf, Box<dyn std::error::Error>> {
-                let dir = PathBuf::from(
-                    crate::util::env(name)
-                        .ok_or(format!("the `{backend}` feature requires {name} to be set"))?,
-                );
-                if !dir.is_dir() {
-                    return Err(format!("{name} ({}) is not a directory", dir.display()).into());
-                }
-                Ok(dir)
-            };
-
             let openssl = std::env::var_os("CARGO_FEATURE_OPENSSL").is_some();
             let symcrypt = std::env::var_os("CARGO_FEATURE_SYMCRYPT").is_some();
             match (openssl, symcrypt) {
@@ -72,10 +56,7 @@ mod backend {
                     "exactly one of the `openssl` or `symcrypt` features must be enabled".into(),
                 ),
                 (true, false) => Ok(Self::OpenSsl),
-                (false, true) => Ok(Self::SymCrypt {
-                    include_dir: dir("SYMCRYPT_INCLUDE_DIR", "symcrypt")?,
-                    lib_dir: dir("SYMCRYPT_LIB_DIR", "symcrypt")?,
-                }),
+                (false, true) => Ok(Self::SymCrypt),
             }
         }
 
@@ -83,7 +64,7 @@ mod backend {
         pub(crate) fn tpm_archives(&self) -> &'static [&'static str] {
             match self {
                 Self::OpenSsl => super::openssl::TPM_ARCHIVES,
-                Self::SymCrypt { .. } => super::symcrypt::TPM_ARCHIVES,
+                Self::SymCrypt => super::symcrypt::TPM_ARCHIVES,
             }
         }
     }
@@ -151,14 +132,11 @@ mod tpm {
             Backend::OpenSsl => {
                 crate::openssl::configure(&mut cmake_config, &tpm_src_dir, &out_dir)?;
             }
-            Backend::SymCrypt {
-                include_dir,
-                lib_dir,
-            } => {
+            Backend::SymCrypt => {
                 // SymCrypt doesn't cover every role yet, so it layers over the OpenSSL
                 // selections instead of replacing them.
                 crate::openssl::configure(&mut cmake_config, &tpm_src_dir, &out_dir)?;
-                crate::symcrypt::configure(&mut cmake_config, include_dir, lib_dir)?;
+                crate::symcrypt::configure(&mut cmake_config)?;
             }
         }
 
@@ -269,31 +247,31 @@ mod openssl {
 /// Everything specific to the SymCrypt crypto backend.
 mod symcrypt {
     use crate::util;
-    use std::path::Path;
     use std::path::PathBuf;
-
-    /// The prebuilt archive `SYMCRYPT_LIB_DIR` is expected to contain.
-    pub(crate) fn archive(lib_dir: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
-        Ok(lib_dir.join(util::archive_file_name("symcrypt")?))
-    }
 
     /// Point the TPM build at the prebuilt SymCrypt.
     pub(crate) fn configure(
         cmake_config: &mut cmake::Config,
-        include_dir: &Path,
-        lib_dir: &Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let dir = |name: &str| -> Result<PathBuf, Box<dyn std::error::Error>> {
+            util::env_dir(name)?.ok_or_else(|| {
+                format!("building the TPM against SymCrypt requires {name} to be set").into()
+            })
+        };
+        let include_dir = dir("SYMCRYPT_INCLUDE_DIR")?;
+        let lib_dir = dir("SYMCRYPT_LIB_DIR")?;
+
         // Tell Cargo about the external SymCrypt.
-        println!("cargo:rerun-if-changed={}", archive(lib_dir)?.display());
+        let archive = lib_dir.join(util::archive_file_name("symcrypt")?);
+        println!("cargo:rerun-if-changed={}", archive.display());
         println!("cargo:rustc-link-search=native={}", lib_dir.display());
 
         // The TPM's build expects SymCrypt's split `symcrypt_common` /
         // `symcrypt_generic` archives, so pre-seed the cache entries its
         // `find_library` calls populate to accept a single merged archive.
-        let archive = archive(lib_dir)?;
         cmake_config
-            .define("SYMCRYPT_INCLUDE_DIR", include_dir)
-            .define("SYMCRYPT_LIB_DIR", lib_dir)
+            .define("SYMCRYPT_INCLUDE_DIR", &include_dir)
+            .define("SYMCRYPT_LIB_DIR", &lib_dir)
             .define("SYMCRYPT_COMMON_LIB", &archive)
             .define("cryptoLib_Symmetric", "SymCrypt")
             .define("cryptoLib_Hash", "SymCrypt")
@@ -453,9 +431,25 @@ mod symbols {
 mod util {
     use std::ffi::OsString;
     use std::path::Path;
+    use std::path::PathBuf;
 
     pub(crate) fn is_windows_msvc() -> Result<bool, Box<dyn std::error::Error>> {
         Ok(std::env::var("TARGET")?.contains("windows-msvc"))
+    }
+
+    /// Read an environment variable naming a directory that must exist if the
+    /// variable is set at all.
+    pub(crate) fn env_dir(name: &str) -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
+        let Some(value) = env(name) else {
+            return Ok(None);
+        };
+
+        let dir = PathBuf::from(value);
+        if !dir.is_dir() {
+            return Err(format!("{name} ({}) is not a directory", dir.display()).into());
+        }
+
+        Ok(Some(dir))
     }
 
     /// The file name a static library lands in for the target.

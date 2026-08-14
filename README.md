@@ -49,9 +49,15 @@ documentation for instructions on how to build + link against OpenSSL:
 
 ### SymCrypt
 
-The `symcrypt` feature does not build SymCrypt. Point `SYMCRYPT_INCLUDE_DIR` and
-`SYMCRYPT_LIB_DIR` at an existing build; both accept the target-prefixed forms
-the other env-vars do.
+The `symcrypt` feature does not build SymCrypt. When compiling the TPM from
+source, point `SYMCRYPT_INCLUDE_DIR` and `SYMCRYPT_LIB_DIR` at an existing
+build; both accept the target-prefixed forms the other env-vars do. The build
+script also adds `SYMCRYPT_LIB_DIR` to the link search path in that case.
+
+When linking pre-built TPM libraries via `TCG_TPM_LIB_DIR`, neither variable is
+consulted, and the build script emits no SymCrypt link flags at all. The final
+binary is responsible for supplying a SymCrypt that matches the one the
+pre-built libraries were compiled against.
 
 `scripts/fetch-symcrypt.sh` stages a Linux build from the latest
 [`microsoft/openvmm-deps`](https://github.com/microsoft/openvmm-deps) release and
