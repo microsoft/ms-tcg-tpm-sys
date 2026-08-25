@@ -42,9 +42,9 @@ pub enum NvError {
     /// library was built for.
     MismatchedBlobSize {
         /// The size the TPM library was built for, i.e. [`NV_MEMORY_SIZE`].
-        expected: usize,
+        pub expected: usize,
         /// The size that was provided.
-        actual: usize,
+        pub actual: usize,
     },
     /// An invalid access was attempted.
     InvalidAccess {
