@@ -42,7 +42,6 @@
 
 #define     SM4_128                     (NO  * ALG_SM4)
 
-// CHANGED_FROM_DEFAULT
 #define ALG_CAMELLIA                ALG_NO
 
 #define     CAMELLIA_128                (YES * ALG_CAMELLIA)
@@ -174,7 +173,6 @@
 //***********************************************
 // Defines controlling ACT
 //***********************************************
-// CHANGED_FROM_DEFAULT
 #define ACT_SUPPORT                         NO
 #define RH_ACT_0                                (YES * ACT_SUPPORT)
 #define RH_ACT_1                                ( NO * ACT_SUPPORT)
@@ -234,7 +232,6 @@
 //***********************************************
 // Defines controlling Firmware- and SVN-limited objects
 //***********************************************
-// CHANGED_FROM_DEFAULT
 #define FW_LIMITED_SUPPORT                    NO
 #define SVN_LIMITED_SUPPORT                   NO
 

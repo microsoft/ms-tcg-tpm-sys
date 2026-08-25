@@ -49,7 +49,7 @@
 // macros will make sure that it is set correctly. A simulated TPM would include a
 // Virtual TPM. The interfaces for a Virtual TPM should be modified from the standard
 // ones in the Simulator project.
-// CHANGED_FROM_DEFAULT
+// The vTPM static library excludes simulation-only debug code.
 #define SIMULATION                  NO
 
 // ENABLE_TPM_DEBUG_PRINT enables arbitrary string printing.
@@ -100,7 +100,6 @@
 // ability of the platform library to force failure mode while leaving the rest
 // of the TPM behavior alone.  Useful for testing when the full set of options
 // controlled by SIMULATION may not be desired.
-// CHANGED_FROM_DEFAULT
 #define ALLOW_FORCE_FAILURE_MODE    NO
 
 ////////////////////////////////////////////////////////////////
@@ -177,7 +176,6 @@
 // defined, then it is assumed that the timer will change at any time so the
 // nonce should be a random number kept in RAM. When it is not defined, then the
 // timer only stops during power outages.
-// CHANGED_FROM_DEFAULT
 #define CLOCK_STOPS                 YES
 
 // Indicate if the implementation is going to give lockout time credit for time up to

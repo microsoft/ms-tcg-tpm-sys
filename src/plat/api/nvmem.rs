@@ -10,7 +10,13 @@ use crate::error::Error;
 use super::super::MsTpm185PlatformImpl;
 
 /// The size of the non-volatile memory.
-pub const NV_MEMORY_SIZE: usize = 131072;
+///
+/// The TPM library is compiled with this as its `NV_MEMORY_SIZE` and has no way
+/// to ask the platform how much NV memory actually exists, so it reads and
+/// writes anywhere in this range. The platform's NV region must therefore be
+/// exactly this size, and a region of any other size is rejected with
+/// [`NvError::MismatchedBlobSize`].
+pub const NV_MEMORY_SIZE: usize = 128 * 1024; // 128 KiB
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct NvState {
@@ -19,9 +25,9 @@ pub struct NvState {
 }
 
 impl NvState {
-    pub fn new(size: usize) -> NvState {
+    pub fn new() -> NvState {
         NvState {
-            region: vec![0; size],
+            region: vec![0; NV_MEMORY_SIZE],
             is_init: false,
         }
     }
@@ -32,8 +38,14 @@ impl NvState {
 pub enum NvError {
     /// The non-volatile memory is already initialized.
     AlreadyInitialized,
-    /// The size of the blob does not match the expected size.
-    MismatchedBlobSize,
+    /// The size of the non-volatile memory does not match the size the TPM
+    /// library was built for.
+    MismatchedBlobSize {
+        /// The size the TPM library was built for, i.e. [`NV_MEMORY_SIZE`].
+        expected: usize,
+        /// The size that was provided.
+        actual: usize,
+    },
     /// An invalid access was attempted.
     InvalidAccess {
         /// The starting offset of the invalid access.
@@ -49,6 +61,27 @@ impl From<NvError> for Error {
     }
 }
 
+/// Check that an NV region is the size the TPM library was built for.
+///
+/// The library has no runtime way to learn how much NV memory the platform
+/// provides: it is compiled with [`NV_MEMORY_SIZE`] and reads and writes
+/// anywhere in that range.
+///
+/// A shorter region does not fail cleanly. `NvRead()` returns `void` and simply
+/// skips the read when the platform rejects it, so the library carries on using
+/// whatever was already in the caller's stack buffer.
+pub fn validate_nv_size(size: usize) -> Result<(), Error> {
+    if size != NV_MEMORY_SIZE {
+        return Err(NvError::MismatchedBlobSize {
+            expected: NV_MEMORY_SIZE,
+            actual: size,
+        }
+        .into());
+    }
+
+    Ok(())
+}
+
 #[expect(dead_code)]
 enum NvAvailability {
     Available = 0,    // NV_READY
@@ -62,9 +95,7 @@ impl MsTpm185PlatformImpl {
             return Err(NvError::AlreadyInitialized.into());
         }
 
-        if blob.len() > NV_MEMORY_SIZE {
-            return Err(NvError::MismatchedBlobSize.into());
-        }
+        validate_nv_size(blob.len())?;
 
         self.state.nvmem.region = blob.to_vec();
         self.state.nvmem.is_init = true;
@@ -76,7 +107,7 @@ impl MsTpm185PlatformImpl {
         // This may be called after nv_enable_from_blob, so don't error if we're
         // already initialized
         if !self.state.nvmem.is_init {
-            self.state.nvmem.region = vec![0; self.nv_size()];
+            self.state.nvmem.region = vec![0; NV_MEMORY_SIZE];
             self.state.nvmem.is_init = true;
         }
 
@@ -104,8 +135,19 @@ impl MsTpm185PlatformImpl {
     }
 
     fn nv_memory_read(&mut self, start_offset: usize, buf: &mut [u8]) -> Result<(), Error> {
-        buf.copy_from_slice(self.nv_range(start_offset, buf.len())?);
-        Ok(())
+        match self.nv_range(start_offset, buf.len()) {
+            Ok(region) => {
+                buf.copy_from_slice(region);
+                Ok(())
+            }
+            Err(e) => {
+                // `NvRead()` is `void` and discards this failure, leaving the
+                // library to carry on with whatever `buf` already held. Zero it
+                // rather than leaving it uninitialized.
+                buf.fill(0);
+                Err(e)
+            }
+        }
     }
 
     fn nv_is_different(&mut self, start_offset: usize, buf: &[u8]) -> Result<bool, Error> {
@@ -157,10 +199,6 @@ impl MsTpm185PlatformImpl {
         self.callbacks
             .commit_nv_state(&self.state.nvmem.region)
             .map_err(Error::PlatformCallback)
-    }
-
-    fn nv_size(&self) -> usize {
-        self.state.nvmem.region.len()
     }
 }
 
