@@ -35,8 +35,8 @@ pub enum InitKind<'a> {
     ColdInitWithPersistentState {
         /// Opaque nvmem blob.
         ///
-        /// Must be exactly [`NV_MEMORY_SIZE`] bytes. A truncated
-        /// blob is rejected with [`NvError::MismatchedBlobSize`].
+        /// Must be exactly [`NV_MEMORY_SIZE`] bytes. Any other size is rejected with
+        /// [`NvError::MismatchedBlobSize`].
         nvmem_blob: Cow<'a, [u8]>,
     },
 }
