@@ -26,10 +26,17 @@ pub enum InitKind<'a> {
     ColdInit,
     /// Initialize the TPM entirely from scratch, having it manufacture an
     /// initial nvmem blob of the provided size.
+    ///
+    /// The size must be [`NV_MEMORY_SIZE`], since that is what the TPM library
+    /// was compiled for and it has no way to be told otherwise. Any other size
+    /// is rejected with [`NvError::MismatchedBlobSize`].
     ColdInitWithSize(usize),
     /// Initialize the TPM from an existing saved nvmem blob.
     ColdInitWithPersistentState {
-        /// Opaque nvmem blob
+        /// Opaque nvmem blob.
+        ///
+        /// Must be exactly [`NV_MEMORY_SIZE`] bytes. Any other size is rejected with
+        /// [`NvError::MismatchedBlobSize`].
         nvmem_blob: Cow<'a, [u8]>,
     },
 }
