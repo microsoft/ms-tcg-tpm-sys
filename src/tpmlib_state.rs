@@ -1,4 +1,5 @@
-// Copyright (C) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
 //! Bindings to injected `runtime_state.c`, which allows doing hot save/restores
 //! of TPM C library state.
