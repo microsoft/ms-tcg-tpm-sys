@@ -111,6 +111,30 @@ cargo run -p test-harness -- ./tpm.nvmem
   feature.
 - `test-harness/` - A small sample binary that initializes the TPM, sends a
   few commands, and persists state to an on-disk `.nvmem` blob.
+- `fuzz/` - `cargo-fuzz` targets covering the crate's untrusted-input
+  boundaries. See [`fuzz/README.md`](fuzz/README.md).
+
+## Fuzzing
+
+The `fuzz/` directory holds [`cargo-fuzz`](https://github.com/rust-fuzz/cargo-fuzz)
+targets for the inputs a vTPM doesn't control: guest-issued commands, saved-state
+blobs, and persisted nvmem blobs.
+
+```sh
+cargo install cargo-fuzz
+rustup toolchain install nightly
+
+cargo +nightly fuzz run fuzz_tpm
+```
+
+Fuzzing needs the TPM's C code instrumented, not just the Rust wrapper around
+it, so `build.rs` builds it with clang and the matching sanitizer and coverage
+flags whenever Cargo reports that this crate is being built for a fuzzer. That
+requires clang to be installed, but nothing needs to be configured by hand, and
+it doesn't affect normal builds.
+
+See [`fuzz/README.md`](fuzz/README.md) for the list of targets and for details
+on corpus layout, reproducing crashes, and adjusting the instrumentation.
 
 ## Relationship to `tpm-rs`
 

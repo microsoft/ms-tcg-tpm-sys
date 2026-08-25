@@ -1,0 +1,65 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+
+[package]
+name = "ms-tcg-tpm-sys-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[features]
+# The TPM library requires OpenSSL 3.5 or newer, which is newer than what most
+# distros ship, so build it from source by default.
+default = ["openssl", "vendored"]
+
+# `openssl` and `symcrypt` are mutually exclusive; see the root crate's manifest.
+openssl = ["ms-tcg-tpm-sys/openssl"]
+symcrypt = ["ms-tcg-tpm-sys/symcrypt"]
+vendored = ["ms-tcg-tpm-sys/vendored"]
+
+[dependencies]
+arbitrary = { version = "1", features = ["derive"] }
+libfuzzer-sys = "0.4"
+ms-tcg-tpm-sys = { path = "..", default-features = false }
+
+[[bin]]
+name = "fuzz_tpm"
+path = "fuzz_targets/fuzz_tpm.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_tpm_session"
+path = "fuzz_targets/fuzz_tpm_session.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_restore_state"
+path = "fuzz_targets/fuzz_restore_state.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_nvmem"
+path = "fuzz_targets/fuzz_nvmem.rs"
+test = false
+doc = false
+bench = false
+
+[lints.rust]
+missing_docs = "warn"
+unused_qualifications = "warn"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "warn"
+
+# Keep the fuzz crate out of the root workspace, so that the instrumented build
+# doesn't interfere with regular `cargo build` invocations.
+[workspace]
+members = ["."]
