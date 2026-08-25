@@ -124,18 +124,19 @@ impl MsTpm185Platform {
             None => {
                 let new_platform = match &init_kind {
                     InitKind::ColdInit => {
-                        let mut platform =
-                            MsTpm185PlatformImpl::new(callbacks, api::nvmem::NV_MEMORY_SIZE);
+                        let mut platform = MsTpm185PlatformImpl::new(callbacks);
                         platform.nv_enable()?;
                         platform
                     }
+                    // TODO: Remove this option?
                     InitKind::ColdInitWithSize(size) => {
-                        let mut platform = MsTpm185PlatformImpl::new(callbacks, *size);
+                        api::nvmem::validate_nv_size(*size)?;
+                        let mut platform = MsTpm185PlatformImpl::new(callbacks);
                         platform.nv_enable()?;
                         platform
                     }
                     InitKind::ColdInitWithPersistentState { nvmem_blob } => {
-                        let mut platform = MsTpm185PlatformImpl::new(callbacks, nvmem_blob.len());
+                        let mut platform = MsTpm185PlatformImpl::new(callbacks);
                         platform.nv_enable_from_blob(nvmem_blob)?;
                         platform
                     }
@@ -386,13 +387,13 @@ struct MsTpm185PlatformState {
 }
 
 impl MsTpm185PlatformState {
-    fn new(size: usize) -> MsTpm185PlatformState {
+    fn new() -> MsTpm185PlatformState {
         MsTpm185PlatformState {
             cancel: api::cancel::CancelState::new(),
             clock: api::clock::ClockState::new(),
             failure: api::failure::FailureState::new(),
             locality: api::locality::LocalityState::new(),
-            nvmem: api::nvmem::NvState::new(size),
+            nvmem: api::nvmem::NvState::new(),
             power_plat: api::power_plat::PowerPlatState::new(),
             entropy: api::entropy::EntropyState::new(),
         }
@@ -405,10 +406,10 @@ struct MsTpm185PlatformImpl {
 }
 
 impl MsTpm185PlatformImpl {
-    fn new(callbacks: Box<dyn PlatformCallbacks + Send>, size: usize) -> MsTpm185PlatformImpl {
+    fn new(callbacks: Box<dyn PlatformCallbacks + Send>) -> MsTpm185PlatformImpl {
         MsTpm185PlatformImpl {
             callbacks,
-            state: MsTpm185PlatformState::new(size),
+            state: MsTpm185PlatformState::new(),
         }
     }
 
