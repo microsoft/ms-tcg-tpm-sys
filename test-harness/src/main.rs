@@ -1,4 +1,5 @@
-// Copyright (C) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
 //! Sample binary that uses `ms-tcg-tpm-sys` to initialize a TPM engine, send
 //! a few commands to it, and persist state to an on-disk `.nvram` blob.

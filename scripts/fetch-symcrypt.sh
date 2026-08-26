@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Copyright (C) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 #
 # Stage a prebuilt SymCrypt from the latest `microsoft/openvmm-deps` release.
 #
