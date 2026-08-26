@@ -169,14 +169,16 @@ pub fn with_tpm<R>(f: impl FnOnce(&mut FuzzTpm) -> R) -> R {
 /// An nvmem blob written by a real, freshly manufactured TPM, for fuzz targets
 /// that want to mutate a plausible blob rather than start from noise.
 ///
-/// Must not be called while a [`FuzzTpm`] is live, as it briefly manufactures a
-/// TPM of its own.
+/// Must not be called from inside a [`with_tpm`] closure, since it reaches the
+/// per-process TPM through [`with_tpm`] itself.
 pub fn baseline_nvmem() -> &'static [u8] {
     static BASELINE: OnceLock<Vec<u8>> = OnceLock::new();
     BASELINE.get_or_init(|| {
-        // Manufacture a TPM purely for the nvmem it writes on the way up, then
-        // hand the platform singleton back for the fuzz target to claim.
-        drop(FuzzTpm::new());
+        // Manufacturing the per-process TPM is what writes the blob, so go
+        // through `with_tpm` rather than standing up a throwaway TPM here. Only
+        // one TPM can hold the platform singleton at a time, so a throwaway
+        // would panic for any caller that got here after the first `with_tpm`.
+        with_tpm(|_| ());
 
         let committed = COMMITTED_NVMEM.lock().unwrap().clone();
         assert!(
@@ -244,8 +246,12 @@ impl FuzzTpm {
     /// response.
     pub fn execute_command_unchecked(&mut self, command: &mut [u8]) -> &[u8] {
         // SAFETY: `self.response` is `MAX_RESPONSE_SIZE` bytes, which is the
-        // largest response the TPM can produce, and the TPM validates the
-        // request buffer's size against the size declared in its header.
+        // largest response the TPM can produce. The request buffer needs no
+        // trimming: `ExecuteCommand` bounds every unmarshal by the
+        // `requestSize` it was handed, and rejects a command whose header
+        // declares a different size with `TPM_RC_COMMAND_SIZE` (see
+        // `commandSize != requestSize` in `ExecCommand.c`), so an oversized
+        // declared size can't walk off the end of `command`.
         let len = unsafe {
             self.platform
                 .execute_command_unchecked(command, &mut self.response)
