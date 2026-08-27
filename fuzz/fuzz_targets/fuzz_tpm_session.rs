@@ -112,6 +112,8 @@ enum Op {
     SetLocality(u8),
     /// Set or clear the cancel flag.
     SetCancelFlag(bool),
+    /// Jump the platform clock forward, in minutes.
+    AdvanceClock(u16),
 }
 
 fuzz_target!(|ops: Vec<Op>| {
@@ -175,6 +177,9 @@ fuzz_target!(|ops: Vec<Op>| {
                 }
                 Op::SetCancelFlag(enabled) => {
                     tpm.set_cancel_flag(*enabled);
+                }
+                Op::AdvanceClock(minutes) => {
+                    tpm.advance_clock(u64::from(*minutes) * 60_000);
                 }
             }
         }

@@ -814,6 +814,15 @@ impl FuzzTpm {
     pub fn set_cancel_flag(&mut self, enabled: bool) {
         self.platform.set_cancel_flag(enabled);
     }
+
+    /// Jumps the platform clock forward.
+    ///
+    /// The clock otherwise advances a millisecond per read, so anything on a
+    /// realistic timeout - lockout self healing, ACT countdowns, the periodic
+    /// clock update that forces an NV write - is unreachable in a fuzz run.
+    pub fn advance_clock(&mut self, millis: u64) {
+        CLOCK_TICKS.fetch_add(millis, Relaxed);
+    }
 }
 
 /// Validates the invariants every TPM response is expected to uphold, and
