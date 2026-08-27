@@ -24,8 +24,11 @@
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 use ms_tcg_tpm_sys_fuzz::Patch;
+use ms_tcg_tpm_sys_fuzz::TPM2_SHUTDOWN_STATE;
 use ms_tcg_tpm_sys_fuzz::TPM2_STARTUP_CLEAR;
+use ms_tcg_tpm_sys_fuzz::TPM2_STARTUP_STATE;
 use ms_tcg_tpm_sys_fuzz::baseline_nvmem;
+use ms_tcg_tpm_sys_fuzz::known_commands;
 use ms_tcg_tpm_sys_fuzz::split_commands;
 use ms_tcg_tpm_sys_fuzz::with_tpm;
 
@@ -33,12 +36,29 @@ use ms_tcg_tpm_sys_fuzz::with_tpm;
 /// executions-per-second up.
 const MAX_COMMANDS: usize = 8;
 
+/// A command to run against the TPM that came up on the corrupted blob.
+#[derive(Arbitrary, Debug)]
+enum Command {
+    /// One of the harness' well formed commands. This target has no seed
+    /// corpus and no dictionary, so without these it rarely gets a command
+    /// past the header and never sees what a tampered blob does to a TPM that
+    /// is actually running.
+    Known(u8),
+    /// Fuzzer supplied bytes, split on their declared command sizes.
+    Raw(Vec<u8>),
+}
+
 #[derive(Arbitrary, Debug)]
 struct Input {
+    /// Whether to shut down orderly before the power cycle, and come back up
+    /// with `TPM_SU_STATE`. Resuming reads far more out of the blob than a
+    /// clear start does, but only makes sense against a blob that claims an
+    /// orderly shutdown - which the patches below are free to lie about.
+    resume: bool,
     /// Corruption to apply to the nvmem blob.
     patches: Vec<Patch>,
     /// Commands to run against the TPM that comes up on the corrupted blob.
-    commands: Vec<u8>,
+    commands: Vec<Command>,
 }
 
 fuzz_target!(|input: Input| {
@@ -46,6 +66,12 @@ fuzz_target!(|input: Input| {
     Patch::apply_all(&mut nvmem, &input.patches);
 
     with_tpm(|tpm| {
+        if input.resume {
+            // Has to happen before the power cycle, on the pristine TPM, so
+            // that the state being resumed onto is one the TPM really wrote.
+            let _ = tpm.execute_command(&mut TPM2_SHUTDOWN_STATE.to_vec());
+        }
+
         // Rejecting a blob outright is a perfectly good outcome.
         if tpm.reset(Some(&nvmem)).is_err() {
             return;
@@ -53,10 +79,29 @@ fuzz_target!(|input: Input| {
 
         // Start the TPM up before anything else; that's where the bulk of the
         // nvmem is parsed.
-        let mut commands = vec![TPM2_STARTUP_CLEAR.to_vec()];
-        commands.append(&mut split_commands(&input.commands, MAX_COMMANDS));
+        let startup = if input.resume {
+            TPM2_STARTUP_STATE
+        } else {
+            TPM2_STARTUP_CLEAR
+        };
 
-        for command in &mut commands {
+        let mut commands = vec![startup.to_vec()];
+        for command in &input.commands {
+            match command {
+                Command::Known(index) => {
+                    let known = known_commands();
+                    commands.push(known[*index as usize % known.len()].to_vec());
+                }
+                Command::Raw(bytes) => {
+                    commands.append(&mut split_commands(bytes, MAX_COMMANDS));
+                }
+            }
+            if commands.len() >= MAX_COMMANDS {
+                break;
+            }
+        }
+
+        for command in commands.iter_mut().take(MAX_COMMANDS) {
             let _ = tpm.execute_command(command);
         }
     });

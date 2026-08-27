@@ -16,31 +16,89 @@
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 use ms_tcg_tpm_sys::Locality;
+use ms_tcg_tpm_sys_fuzz::KNOWN_HANDLES;
+use ms_tcg_tpm_sys_fuzz::PASSWORD_SESSION;
 use ms_tcg_tpm_sys_fuzz::TPM_CC_FIRST;
-use ms_tcg_tpm_sys_fuzz::TPM_ST_NO_SESSIONS;
-use ms_tcg_tpm_sys_fuzz::TPM_ST_SESSIONS;
-use ms_tcg_tpm_sys_fuzz::build_command;
+use ms_tcg_tpm_sys_fuzz::build_structured_command;
+use ms_tcg_tpm_sys_fuzz::canned_commands;
 use ms_tcg_tpm_sys_fuzz::with_tpm;
 
 /// Caps how much work a single input can ask for, keeping the fuzzer's
 /// executions-per-second up.
 const MAX_OPS: usize = 24;
 
+/// Caps the handle area. `MAX_HANDLE_NUM` is 3 in this profile, so anything
+/// beyond that is parameter bytes rather than a handle.
+const MAX_HANDLES: usize = 3;
+
+/// A handle to place in a command's handle area.
+#[derive(Arbitrary, Debug)]
+enum Handle {
+    /// One of the handles that actually names something, selected modulo
+    /// [`KNOWN_HANDLES`].
+    Known(u8),
+    /// An arbitrary handle, for the handle validation itself.
+    Raw(u32),
+}
+
+impl Handle {
+    fn resolve(&self) -> u32 {
+        match self {
+            Handle::Known(index) => KNOWN_HANDLES[*index as usize % KNOWN_HANDLES.len()],
+            Handle::Raw(handle) => *handle,
+        }
+    }
+}
+
+/// The authorization area to attach to a command.
+#[derive(Arbitrary, Debug)]
+enum Auth {
+    /// No authorization area, tagging the command `TPM_ST_NO_SESSIONS`.
+    None,
+    /// One to three empty password sessions, which is what the great majority
+    /// of commands are asking for.
+    Password(u8),
+    /// A fuzzer supplied authorization area, to exercise the session parser
+    /// rather than the command behind it.
+    Raw(Vec<u8>),
+}
+
+impl Auth {
+    fn build(&self) -> Option<Vec<u8>> {
+        match self {
+            Auth::None => None,
+            Auth::Password(count) => {
+                let count = 1 + *count as usize % 3;
+                Some(PASSWORD_SESSION.repeat(count))
+            }
+            Auth::Raw(bytes) => Some(bytes.clone()),
+        }
+    }
+}
+
 #[derive(Arbitrary, Debug)]
 enum Op {
-    /// Dispatch a command with a well formed header and a fuzzer controlled
-    /// body (handles, authorization area, and parameters).
+    /// Dispatch a command with a well formed header, a handle area, and an
+    /// authorization area, leaving the fuzzer to drive the parameters.
     Command {
-        /// Selects between `TPM_ST_SESSIONS` and `TPM_ST_NO_SESSIONS`.
-        sessions: bool,
         /// Offset from `TPM_CC_FIRST`, which covers every implemented command
         /// code, plus a margin of unimplemented ones.
         code_offset: u8,
-        /// Everything after the command header.
-        body: Vec<u8>,
+        /// The command's handle area.
+        handles: Vec<Handle>,
+        /// The command's authorization area.
+        auth: Auth,
+        /// Everything after the authorization area.
+        params: Vec<u8>,
     },
     /// Dispatch raw bytes, header and all.
     Raw(Vec<u8>),
+    /// Dispatch one of the commands the harness built out of data the TPM
+    /// itself produced - a `TPM2_Load` of a real private blob, or a
+    /// `TPM2_ContextLoad` of a real saved context. Neither is reachable
+    /// otherwise, and a loaded child object is what most of the remaining
+    /// object commands are waiting on.
+    Canned(u8),
     /// Dispatch raw bytes through the unchecked entry point, skipping the
     /// wrapper's request size validation.
     RawUnchecked(Vec<u8>),
@@ -65,21 +123,28 @@ fuzz_target!(|ops: Vec<Op>| {
         for op in ops.iter().take(MAX_OPS) {
             match op {
                 Op::Command {
-                    sessions,
                     code_offset,
-                    body,
+                    handles,
+                    auth,
+                    params,
                 } => {
-                    let tag = if *sessions {
-                        TPM_ST_SESSIONS
-                    } else {
-                        TPM_ST_NO_SESSIONS
-                    };
+                    let handles: Vec<u32> = handles
+                        .iter()
+                        .take(MAX_HANDLES)
+                        .map(Handle::resolve)
+                        .collect();
                     let code = TPM_CC_FIRST + *code_offset as u32;
-                    let mut command = build_command(tag, code, body);
+                    let mut command =
+                        build_structured_command(code, &handles, auth.build().as_deref(), params);
                     let _ = tpm.execute_command(&mut command);
                 }
                 Op::Raw(bytes) => {
                     let mut command = bytes.clone();
+                    let _ = tpm.execute_command(&mut command);
+                }
+                Op::Canned(index) => {
+                    let canned = canned_commands();
+                    let mut command = canned[*index as usize % canned.len()].clone();
                     let _ = tpm.execute_command(&mut command);
                 }
                 Op::RawUnchecked(bytes) => {

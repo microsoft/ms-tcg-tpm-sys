@@ -40,6 +40,24 @@ cargo +nightly fuzz run fuzz_tpm fuzz/artifacts/fuzz_tpm/crash-<hash>
 cargo +nightly fuzz tmin fuzz_tpm fuzz/artifacts/fuzz_tpm/crash-<hash>
 ```
 
+libFuzzer's default `-timeout` is 1200 seconds, which is longer than any
+campaign worth running, so an input that sends the TPM into an infinite loop is
+not reported as a hang - it just silently pins a worker for the whole run, and
+the only sign is a child still alive after `-max_total_time` has passed. Pass
+something realistic:
+
+```sh
+cargo +nightly fuzz run fuzz_nvmem -- -timeout=25 -max_total_time=600
+```
+
+To collect every distinct failure in one run rather than stopping at the first,
+fork mode keeps going and writes an artifact per failure:
+
+```sh
+cargo +nightly fuzz run fuzz_nvmem -- -fork=4 -timeout=25 \
+    -ignore_crashes=1 -ignore_timeouts=1 -ignore_ooms=1
+```
+
 The `symcrypt` backend can be fuzzed with `--no-default-features --features
 symcrypt` (after `./scripts/fetch-symcrypt.sh`).
 
@@ -79,6 +97,91 @@ their own, the targets assert that:
 - restoring a blob the TPM just saved always succeeds, and
 - an `initialize` that fails leaves the platform singleton free to be claimed
   again.
+
+## Reaching the command handlers
+
+Almost every TPM command needs three things before its handler is entered: a
+well formed header, handles that name something which exists, and a valid
+authorization area. A mutator invents none of them, so a fuzzer left to itself
+spends its whole budget being turned away at the front door. A first campaign
+reached 14 of the 125 implemented commands, and the only two of those that
+take an authorization were the two the seed corpus happened to spell out by
+hand.
+
+Three things address that, all in [`src/lib.rs`](src/lib.rs):
+
+- `SETUP_COMMANDS` runs once per process, before the snapshot that every
+  iteration rolls back to, and leaves behind two loaded keys, a persistent copy
+  of one of them, five NV indices, and one HMAC and one policy session. Their
+  handles are what `KNOWN_HANDLES` lists, and the setup asserts the TPM handed
+  those exact handles back, so the table cannot silently drift out of date and
+  quietly cost coverage.
+- `PASSWORD_SESSION` is a `TPM_RS_PW` authorization area with an empty
+  password, which is what the great majority of commands are asking for.
+  `fuzz_tpm_session` assembles it structurally; `tpm.dict` carries it so that
+  `fuzz_tpm` can splice one into a raw byte stream.
+- The first authorization of a dictionary-attack protected object does not run
+  the command at all: it writes the `daUsed` state to NV and returns
+  `TPM_RC_RETRY` (see `SessionProcess.c`). The harness settles that before
+  snapshotting, so iterations don't spend their first authorized command on it.
+
+What gets seeded is shaped by the profile's limits rather than by what would be
+convenient:
+
+- `MAX_LOADED_OBJECTS` is 3, so exactly two objects are seeded and the third
+  slot is deliberately left empty. Seeding a third would make every
+  `TPM2_Load`, `TPM2_Create` and `TPM2_CreateLoaded` fail with
+  `TPM_RC_OBJECT_MEMORY`, and the seeding would cost more coverage than it
+  bought. For the same reason two of the three session slots are used, not all
+  three.
+- The two objects are an unrestricted ECC signing key and a restricted
+  decryption key. A signing key cannot be a parent, so without the second one
+  nothing that needs somewhere to put an object is reachable.
+- NV indices are free - they don't consume object slots - so there is one of
+  each type that has commands specific to it: ordinary, counter, bit field,
+  extend, and one carrying `READ_STCLEAR`/`WRITE_STCLEAR` for the lock
+  commands.
+- Persistent objects are free too, for the same reason, so the RSA and ML-DSA
+  keys are generated once, evicted to NV, and their transient slot handed
+  straight back. Without them neither algorithm runs at all: no RSA key means
+  key generation, the prime sieve and Miller-Rabin are never entered, and no
+  ML-DSA key means the streaming signature commands - which take a
+  `TPM2B_SIGNATURE_CTX`, an ML-DSA context - have nothing to name. RSA is
+  1024-bit deliberately: it exercises the same generation path a larger modulus
+  would, and this runs on every process startup.
+
+[`seed_corpus/fuzz_tpm/`](seed_corpus/fuzz_tpm) then names those handles from
+raw byte streams. Every seed there was checked to actually reach its command
+handler rather than being rejected on the way in.
+
+Some commands can't be seeded at all, because what they take is data only the
+TPM can produce: `TPM2_Load` wants a private blob wrapped by a particular
+parent, and `TPM2_ContextLoad` wants a saved context. `canned_commands()`
+covers those by assembling the commands at setup time out of real responses -
+a `TPM2_Create` and a `TPM2_ContextSave` - which `fuzz_tpm_session` dispatches
+through `Op::Canned`. Both are built before the snapshot, since a saved context
+is only valid against the state it was saved from, which is the state every
+iteration rolls back to.
+
+`fuzz_nvmem` and `fuzz_restore_state` have neither of those advantages: their
+input is `arbitrary`-encoded, so there is no seed corpus to hand them and no
+dictionary to splice from, and raw bytes almost never clear the command header.
+That would waste the interesting half of what they test - not whether a
+tampered blob is rejected, but what the TPM does while running on one that
+wasn't. Both take commands as a `Known(u8)` index into `known_commands()` or
+`Raw(Vec<u8>)` bytes, so the fuzzer can issue something real without giving up
+the ability to send garbage.
+
+A handful of commands stay out of reach by construction, and are not worth
+hand-holding: `TPM2_VerifySignature` and `TPM2_PolicyAuthorize` need a real
+signature or ticket over TPM-generated data, `TPM2_NV_ChangeAuth` needs an
+ADMIN-role policy session, `TPM2_PP_Commands` needs physical presence asserted,
+and `TPM2_SignSequenceStart` needs an opaque `TPM2B_SIGNATURE_CTX`.
+
+Note that all four targets share this snapshot, so the effect is not limited to
+the command targets: `fuzz_restore_state` now patches a blob that has objects
+and sessions in it, and the blob `fuzz_nvmem` corrupts has real NV entries
+rather than only what manufacturing wrote.
 
 ## Determinism
 

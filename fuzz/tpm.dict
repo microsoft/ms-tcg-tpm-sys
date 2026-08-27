@@ -107,6 +107,22 @@ handle_transient="\x80\x00\x00\x00"
 handle_persistent="\x81\x00\x00\x00"
 handle_nv_index="\x01\x00\x00\x01"
 
+# Handles the harness seeds into the pristine state, so these name something
+# that actually exists. See SETUP_COMMANDS in src/lib.rs.
+seeded_transient="\x80\x00\x00\x00"
+seeded_persistent="\x81\x00\x00\x00"
+seeded_nv_index="\x01\x00\x00\x01"
+seeded_hmac_session="\x02\x00\x00\x00"
+seeded_policy_session="\x03\x00\x00\x01"
+
+# Authorization areas. A command tagged TPM_ST_SESSIONS is rejected before its
+# handler runs unless it carries a well formed one of these, and a mutator will
+# not produce one on its own.
+auth_pw_session="\x40\x00\x00\x09\x00\x00\x00\x00\x00"
+auth_pw_empty="\x00\x00\x00\x09\x40\x00\x00\x09\x00\x00\x00\x00\x00"
+auth_pw_empty_x2="\x00\x00\x00\x12\x40\x00\x00\x09\x00\x00\x00\x00\x00\x40\x00\x00\x09\x00\x00\x00\x00\x00"
+auth_pw_continue="\x00\x00\x00\x09\x40\x00\x00\x09\x00\x00\x01\x00\x00"
+
 # Algorithm identifiers (TPM_ALG)
 alg_error="\x00\x00"
 alg_rsa="\x00\x01"
