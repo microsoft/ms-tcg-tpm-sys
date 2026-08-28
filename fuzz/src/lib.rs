@@ -99,6 +99,12 @@ const TPM2_READ_PUBLIC_SEEDED: &[u8] = &[
     0x80, 0x01, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x01, 0x73, 0x80, 0x00, 0x00, 0x00,
 ];
 
+/// `TPM2_GetRandom(16)`. The DRBG state is carried by the saved blob, so a
+/// restore has to rewind it and make this repeat itself.
+const TPM2_GET_RANDOM: &[u8] = &[
+    0x80, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x01, 0x7b, 0x00, 0x10,
+];
+
 /// A `TPM_RS_PW` authorization area holding an empty password.
 ///
 /// This is what the great majority of commands want, and it is the one thing
@@ -417,6 +423,18 @@ const SETUP_COMMANDS: &[(&str, &[u8], Option<u32>)] = &[
 const TPM_CC_LOAD: u32 = 0x0000_0157;
 /// `TPM_CC_ContextLoad`
 const TPM_CC_CONTEXT_LOAD: u32 = 0x0000_0161;
+/// `TPM_CC_VerifySignature`
+const TPM_CC_VERIFY_SIGNATURE: u32 = 0x0000_0177;
+
+/// The `TPM2B_DIGEST` that [`TPM2_SIGN_SEEDED`] signs, which is also what the
+/// signature it produces has to be verified against.
+const SIGNED_DIGEST: &[u8] = &[
+    0x00, 0x20, // size
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, //
+    0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, //
+    0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, //
+    0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+];
 
 /// `TPM2_Create` of an HMAC key under [`SEEDED_STORAGE_PARENT`].
 ///
@@ -514,6 +532,15 @@ fn split_create_response(response: &[u8]) -> Option<(&[u8], &[u8])> {
         params.get(..private)?,
         params.get(private..private + public)?,
     ))
+}
+
+/// Extracts the `TPMT_SIGNATURE` from a `TPM2_Sign` response.
+fn sign_response_signature(response: &[u8]) -> Option<&[u8]> {
+    // Authorized, so tagged TPM_ST_SESSIONS: a parameterSize precedes the
+    // parameters and bounds them, with the session area following.
+    let size = response.get(HEADER_SIZE..HEADER_SIZE + 4)?;
+    let size = u32::from_be_bytes(size.try_into().ok()?) as usize;
+    response.get(HEADER_SIZE + 4..HEADER_SIZE + 4 + size)
 }
 
 /// `TPM2_Sign(SEEDED_TRANSIENT, ECDSA-SHA256)` over a fixed digest.
@@ -694,7 +721,9 @@ impl FuzzTpm {
         // handler behind it. The second attempt has to succeed, which also
         // confirms the seeded key works.
         let _ = tpm.execute_command(&mut TPM2_SIGN_SEEDED.to_vec());
-        tpm.execute_expecting_success(TPM2_SIGN_SEEDED, "TPM2_Sign");
+        let signed = tpm
+            .execute_expecting_success(TPM2_SIGN_SEEDED, "TPM2_Sign")
+            .to_vec();
 
         // Has to happen before the snapshot: a saved context is only valid
         // against the state it was saved from, which is the state every
@@ -721,10 +750,26 @@ impl FuzzTpm {
                 context,
             ));
         }
+
+        // A signature the TPM itself produced. Nothing the fuzzer can invent
+        // verifies, so without this the whole signature-checking path - and
+        // the ticket-taking commands behind it - is only ever entered with
+        // garbage that fails at the first parse.
+        if let Some(signature) = sign_response_signature(&signed) {
+            let mut params = SIGNED_DIGEST.to_vec();
+            params.extend_from_slice(signature);
+            canned.push(build_structured_command(
+                TPM_CC_VERIFY_SIGNATURE,
+                &[SEEDED_TRANSIENT],
+                None,
+                &params,
+            ));
+        }
+
         assert_eq!(
             canned.len(),
-            2,
-            "both canned commands should have been built"
+            3,
+            "all canned commands should have been built"
         );
         let _ = CANNED_COMMANDS.set(canned);
 
@@ -822,6 +867,23 @@ impl FuzzTpm {
     /// clock update that forces an NV write - is unreachable in a fuzz run.
     pub fn advance_clock(&mut self, millis: u64) {
         CLOCK_TICKS.fetch_add(millis, Relaxed);
+    }
+
+    /// Runs read-only commands whose answers are fixed by the TPM's state.
+    ///
+    /// Comparing these either side of a save / restore says whether the blob
+    /// really carries everything the TPM's behavior depends on.
+    pub fn probe(&mut self) -> Vec<u8> {
+        let mut answers = Vec::new();
+
+        for probe in [TPM2_GET_RANDOM, TPM2_READ_PUBLIC_SEEDED] {
+            let mut command = probe.to_vec();
+            if let Ok(response) = self.execute_command(&mut command) {
+                answers.extend_from_slice(response);
+            }
+        }
+
+        answers
     }
 }
 

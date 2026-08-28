@@ -114,6 +114,10 @@ enum Op {
     SetCancelFlag(bool),
     /// Jump the platform clock forward, in minutes.
     AdvanceClock(u16),
+    /// Save, probe, restore, probe again. Restoring the state the first probe
+    /// ran against has to reproduce its answers, so state the blob fails to
+    /// carry shows up as a divergence rather than staying silent.
+    RollbackFidelity,
 }
 
 fuzz_target!(|ops: Vec<Op>| {
@@ -180,6 +184,18 @@ fuzz_target!(|ops: Vec<Op>| {
                 }
                 Op::AdvanceClock(minutes) => {
                     tpm.advance_clock(u64::from(*minutes) * 60_000);
+                }
+                Op::RollbackFidelity => {
+                    let saved = tpm.save_state();
+                    let before = tpm.probe();
+                    tpm.restore_state(saved)
+                        .expect("state the TPM just saved should restore");
+                    let after = tpm.probe();
+
+                    assert!(
+                        before == after,
+                        "restore did not roll the TPM back: probe responses diverged"
+                    );
                 }
             }
         }
