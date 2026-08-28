@@ -39,13 +39,6 @@ doc = false
 bench = false
 
 [[bin]]
-name = "fuzz_restore_state"
-path = "fuzz_targets/fuzz_restore_state.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
 name = "fuzz_nvmem"
 path = "fuzz_targets/fuzz_nvmem.rs"
 test = false
