@@ -7,22 +7,16 @@
 //! The TPM core library always invokes these, even in failure mode, so the
 //! values must be compile-time-stable.
 
-// 4-char ASCII codes packed big-endian, as expected by `_plat__Get*CapabilityCode`.
-const fn ascii4(s: &[u8; 4]) -> u32 {
-    u32::from_be_bytes(*s)
-}
+// Vendor identity.
+const MANUFACTURER: u32 = u32::from_be_bytes(*b"MSFT");
+const VENDOR_STRING_1: u32 = u32::from_be_bytes(*b"Azur");
+const VENDOR_STRING_2: u32 = u32::from_be_bytes(*b"e vT");
+const VENDOR_STRING_3: u32 = u32::from_be_bytes(*b"PM  ");
+const VENDOR_STRING_4: u32 = u32::from_be_bytes(*b"    ");
 
-// Vendor identity. Matches the legacy ms-tpm-20-ref-rs values.
-const MANUFACTURER: u32 = ascii4(b"MSFT");
-const VENDOR_STRING_1: u32 = ascii4(b"TPM ");
-const VENDOR_STRING_2: u32 = ascii4(b"Simu");
-const VENDOR_STRING_3: u32 = ascii4(b"lato");
-const VENDOR_STRING_4: u32 = ascii4(b"r   ");
-
-// Firmware version. Same as ms-tpm-20-ref-rs.
-// TODO: Should we change these?
+// Firmware version.
 const FIRMWARE_V1: u32 = 0x20200312;
-const FIRMWARE_V2: u32 = 0x00120003;
+const FIRMWARE_V2: u32 = 0x00120005;
 
 // Vendor TPM type. Matches the reference code's historical return value.
 const VENDOR_TPM_TYPE: u32 = 1;
