@@ -55,6 +55,11 @@ TPM_STATIC_ASSERT(ACCUMULATE_SELF_HEAL_TIMER == YES);  // else s_selfHealTimer +
 TPM_STATIC_ASSERT(VENDOR_PERMANENT_AUTH_ENABLED == NO);  // else g_platformUniqueAuth
 TPM_STATIC_ASSERT(CLOCK_STOPS == YES);  // else g_timeEpoch aliases gp.timeEpoch
 TPM_STATIC_ASSERT(USE_DA_USED == YES);  // else g_daUsed below is not declared
+TPM_STATIC_ASSERT(ACT_SUPPORT == NO);  // else s_ActUpdated
+TPM_STATIC_ASSERT(SIMULATION == NO);  // else simulation-only state
+TPM_STATIC_ASSERT(DEBUG == NO);  // else debug-only state
+TPM_STATIC_ASSERT(RSA_INSTRUMENT == NO);  // else RSA instrumentation state
+TPM_STATIC_ASSERT(USE_RSA_KEY_CACHE == NO);  // else RSA key cache state
 
 // Contains information about a single run-time variable.
 typedef struct tag_TPM_RUNTIME_STATE_ENTRY
@@ -104,7 +109,7 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         // {(char *)&s_encryptSessionIndex, sizeof(s_encryptSessionIndex)},
         // {(char *)&s_decryptSessionIndex, sizeof(s_decryptSessionIndex)},
         // {(char *)&s_auditSessionIndex, sizeof(s_auditSessionIndex)},
-        {(char *)&s_cpHashForCommandAudit, sizeof(s_cpHashForCommandAudit)},
+        // {(char *)&s_cpHashForCommandAudit, sizeof(s_cpHashForCommandAudit)},
         {(char *)&s_DAPendingOnNV, sizeof(s_DAPendingOnNV)},
         // {(char *)&s_evictNvEnd, sizeof(s_evictNvEnd)},
         {(char *)&s_indexOrderlyRam, sizeof(s_indexOrderlyRam)},
@@ -119,7 +124,7 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         {(char *)&s_freeSessionSlots, sizeof(s_freeSessionSlots)},
         // {(char *)s_actionIoBuffer, sizeof(s_actionIoBuffer)},
         // {(char *)&s_actionIoAllocation, sizeof(s_actionIoAllocation)},
-        {(char *)&s_ActUpdated, sizeof(s_ActUpdated)},
+        // {(char *)&s_ActUpdated, sizeof(s_ActUpdated)},
         // {(char *)failure_response_buffer, sizeof(failure_response_buffer)},
         // {(char *)&primeLimit, sizeof(primeLimit)},
 
@@ -144,6 +149,8 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         //  - s_evictNvEnd is initialized from the compile-time NV_MEMORY_SIZE
         //    during _TPM_Init(), before runtime state can be applied
         //  - s_usedSessions is never referenced by the TPM implementation
+        //  - s_cpHashForCommandAudit is never referenced by the TPM implementation
+        //  - s_ActUpdated is unused because this profile disables ACT support
 };
 
 // Swaps each sequence object's running state for its exported form in a saved
