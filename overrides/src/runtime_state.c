@@ -70,6 +70,7 @@ typedef struct tag_TPM_RUNTIME_STATE_ENTRY
 // Enumerates all run-time variables inside the TPM engine and platform (as defined in Global.h).
 static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
     {
+        // {(char *)&g_implementedAlgorithms, sizeof(g_implementedAlgorithms)},
         {(char *)&g_toTest, sizeof(g_toTest)},
         {(char *)&g_exclusiveAuditSession, sizeof(g_exclusiveAuditSession)},
         {(char *)&g_time, sizeof(g_time)},
@@ -80,9 +81,12 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         {(char *)&g_DrtmPreStartup, sizeof(g_DrtmPreStartup)},
         {(char *)&g_StartupLocality3, sizeof(g_StartupLocality3)},
         {(char *)&g_daUsed, sizeof(g_daUsed)},
+        // {(char *)&g_updateNV, sizeof(g_updateNV)},
         {(char *)&g_powerWasLost, sizeof(g_powerWasLost)},
+        // {(char *)&g_clearOrderly, sizeof(g_clearOrderly)},
         {(char *)&g_prevOrderlyState, sizeof(g_prevOrderlyState)},
         {(char *)&g_nvOk, sizeof(g_nvOk)},
+        // {(char *)&g_NvStatus, sizeof(g_NvStatus)},
         {(char *)&gp, sizeof(gp)},
         {(char *)&go, sizeof(go)},
         {(char *)&gc, sizeof(gc)},
@@ -91,16 +95,33 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         {(char *)&g_manufactured, sizeof(g_manufactured)},
         {(char *)&g_initialized, sizeof(g_initialized)},
         {(char *)&g_initCompleted, sizeof(g_initCompleted)},
+        // {(char *)s_sessionHandles, sizeof(s_sessionHandles)},
+        // {(char *)s_attributes, sizeof(s_attributes)},
+        // {(char *)s_associatedHandles, sizeof(s_associatedHandles)},
+        // {(char *)s_nonceCaller, sizeof(s_nonceCaller)},
+        // {(char *)s_inputAuthValues, sizeof(s_inputAuthValues)},
+        {(char *)s_usedSessions, sizeof(s_usedSessions)},
+        // {(char *)&s_encryptSessionIndex, sizeof(s_encryptSessionIndex)},
+        // {(char *)&s_decryptSessionIndex, sizeof(s_decryptSessionIndex)},
+        // {(char *)&s_auditSessionIndex, sizeof(s_auditSessionIndex)},
+        {(char *)&s_cpHashForCommandAudit, sizeof(s_cpHashForCommandAudit)},
         {(char *)&s_DAPendingOnNV, sizeof(s_DAPendingOnNV)},
         {(char *)&s_evictNvEnd, sizeof(s_evictNvEnd)},
         {(char *)&s_indexOrderlyRam, sizeof(s_indexOrderlyRam)},
         {(char *)&s_maxCounter, sizeof(s_maxCounter)},
+        // {(char *)&s_cachedNvIndex, sizeof(s_cachedNvIndex)},
+        // {(char *)&s_cachedNvRef, sizeof(s_cachedNvRef)},
+        // {(char *)&s_cachedNvRamRef, sizeof(s_cachedNvRamRef)},
         {(char *)s_objects, sizeof(s_objects)},
         {(char *)s_pcrs, sizeof(s_pcrs)},
         {(char *)s_sessions, sizeof(s_sessions)},
         {(char *)&s_oldestSavedSession, sizeof(s_oldestSavedSession)},
         {(char *)&s_freeSessionSlots, sizeof(s_freeSessionSlots)},
+        // {(char *)s_actionIoBuffer, sizeof(s_actionIoBuffer)},
+        // {(char *)&s_actionIoAllocation, sizeof(s_actionIoAllocation)},
         {(char *)&s_ActUpdated, sizeof(s_ActUpdated)},
+        // {(char *)failure_response_buffer, sizeof(failure_response_buffer)},
+        // {(char *)&primeLimit, sizeof(primeLimit)},
 
         // Deliberately excluded, all re-initialized before use within a single
         // ExecuteCommand() and therefore never live across a save/restore:
@@ -117,7 +138,6 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         //  - g_NvStatus (NvCheckState(), before any reader)
         //
         // Also deliberately excluded:
-        //  - s_cpHashForCommandAudit / s_usedSessions are never read;
         //  - g_implementedAlgorithms carries no information:
         //    AlgorithmGetImplementedVector() derives it entirely from the
         //    compile-time s_algorithms[] table during _TPM_Init()
