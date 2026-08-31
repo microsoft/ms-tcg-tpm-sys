@@ -26,7 +26,8 @@
 #define NUM_AUTHVALUE_PCR_GROUP    1
 #define MAX_CONTEXT_SIZE           4344
 #define MAX_DIGEST_BUFFER          1024
-#define MAX_NV_INDEX_SIZE          8500
+// CHANGED_FROM_DEFAULT
+#define MAX_NV_INDEX_SIZE          16 * 1024
 #define MAX_NV_BUFFER_SIZE         1024
 #define MAX_CAP_BUFFER             3072
 #define NV_MEMORY_SIZE             131072
