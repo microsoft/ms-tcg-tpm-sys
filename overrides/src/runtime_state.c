@@ -100,13 +100,13 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         // {(char *)s_associatedHandles, sizeof(s_associatedHandles)},
         // {(char *)s_nonceCaller, sizeof(s_nonceCaller)},
         // {(char *)s_inputAuthValues, sizeof(s_inputAuthValues)},
-        {(char *)s_usedSessions, sizeof(s_usedSessions)},
+        // {(char *)s_usedSessions, sizeof(s_usedSessions)},
         // {(char *)&s_encryptSessionIndex, sizeof(s_encryptSessionIndex)},
         // {(char *)&s_decryptSessionIndex, sizeof(s_decryptSessionIndex)},
         // {(char *)&s_auditSessionIndex, sizeof(s_auditSessionIndex)},
         {(char *)&s_cpHashForCommandAudit, sizeof(s_cpHashForCommandAudit)},
         {(char *)&s_DAPendingOnNV, sizeof(s_DAPendingOnNV)},
-        {(char *)&s_evictNvEnd, sizeof(s_evictNvEnd)},
+        // {(char *)&s_evictNvEnd, sizeof(s_evictNvEnd)},
         {(char *)&s_indexOrderlyRam, sizeof(s_indexOrderlyRam)},
         {(char *)&s_maxCounter, sizeof(s_maxCounter)},
         // {(char *)&s_cachedNvIndex, sizeof(s_cachedNvIndex)},
@@ -141,6 +141,9 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         //  - g_implementedAlgorithms carries no information:
         //    AlgorithmGetImplementedVector() derives it entirely from the
         //    compile-time s_algorithms[] table during _TPM_Init()
+        //  - s_evictNvEnd is initialized from the compile-time NV_MEMORY_SIZE
+        //    during _TPM_Init(), before runtime state can be applied
+        //  - s_usedSessions is never referenced by the TPM implementation
 };
 
 // Swaps each sequence object's running state for its exported form in a saved
