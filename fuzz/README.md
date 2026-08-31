@@ -29,7 +29,7 @@ cargo +nightly fuzz run fuzz_tpm fuzz/corpus/fuzz_tpm fuzz/seed_corpus/fuzz_tpm 
     -- -dict=fuzz/tpm.dict
 ```
 
-The other three targets take `arbitrary`-encoded structures rather than raw
+The other two targets take `arbitrary`-encoded structures rather than raw
 bytes, so there's nothing meaningful to hand-write a seed for; they build their
 corpus from scratch.
 
@@ -67,7 +67,6 @@ symcrypt` (after `./scripts/fetch-symcrypt.sh`).
 | --- | --- | --- |
 | `fuzz_tpm` | A raw TPM command stream | `execute_command`: header validation, command unmarshaling, and dispatch - the bytes a guest controls |
 | `fuzz_tpm_session` | A sequence of platform operations | Commands interleaved with power cycles, live save / restore, locality changes, and cancellation |
-| `fuzz_restore_state` | A saved-state blob | `restore_state`, plus running the TPM on whatever the blob restored |
 | `fuzz_nvmem` | A persisted nvmem blob | Booting on a corrupted, truncated, or hostile nvmem blob |
 
 `fuzz_tpm` takes plain bytes: the input is split into commands along the
@@ -76,9 +75,9 @@ entry can be a capture of a real command stream, and
 [`seed_corpus/fuzz_tpm/`](seed_corpus/fuzz_tpm) holds hand-built commands to
 start from.
 
-The other three take
-[`arbitrary`](https://docs.rs/arbitrary)-derived structures. `fuzz_restore_state`
-and `fuzz_nvmem` mostly work by splicing fuzzer controlled bytes into a blob the
+The other two take
+[`arbitrary`](https://docs.rs/arbitrary)-derived structures. `fuzz_nvmem` mostly
+works by splicing fuzzer controlled bytes into a blob the
 TPM itself produced, since random bytes never survive a blob's framing and
 header validation.
 
@@ -163,8 +162,8 @@ through `Op::Canned`. Both are built before the snapshot, since a saved context
 is only valid against the state it was saved from, which is the state every
 iteration rolls back to.
 
-`fuzz_nvmem` and `fuzz_restore_state` have neither of those advantages: their
-input is `arbitrary`-encoded, so there is no seed corpus to hand them and no
+`fuzz_nvmem` has neither of those advantages: its
+input is `arbitrary`-encoded, so there is no seed corpus to hand it and no
 dictionary to splice from, and raw bytes almost never clear the command header.
 That would waste the interesting half of what they test - not whether a
 tampered blob is rejected, but what the TPM does while running on one that
@@ -178,9 +177,8 @@ signature or ticket over TPM-generated data, `TPM2_NV_ChangeAuth` needs an
 ADMIN-role policy session, `TPM2_PP_Commands` needs physical presence asserted,
 and `TPM2_SignSequenceStart` needs an opaque `TPM2B_SIGNATURE_CTX`.
 
-Note that all four targets share this snapshot, so the effect is not limited to
-the command targets: `fuzz_restore_state` now patches a blob that has objects
-and sessions in it, and the blob `fuzz_nvmem` corrupts has real NV entries
+Note that all three targets share this snapshot, so the effect is not limited to
+the command targets: the blob `fuzz_nvmem` corrupts has real NV entries
 rather than only what manufacturing wrote.
 
 ## Determinism
