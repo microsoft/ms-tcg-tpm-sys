@@ -51,6 +51,8 @@ set(MSVC_OPTIONS "${MSVC_OPTIONS}" /wd4127) # turn off C4127: conditional expres
 # turn off C4191: the Hash function typedefs use casts that trigger
 # unsafe cast warnings.
 set(MSVC_OPTIONS "${MSVC_OPTIONS}" /wd4191)
+# 184_COMPAT
+set(MSVC_OPTIONS "${MSVC_OPTIONS}" /wd4255)
 set(MSVC_OPTIONS "${MSVC_OPTIONS}" /wd4514) # turn off C4514: unreferenced inline function removed
 # C++ default constructor / copy assignment / move assignment
 # are implicitly defined as deleted when including SelfTest.h
