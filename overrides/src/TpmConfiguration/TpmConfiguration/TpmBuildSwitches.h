@@ -72,6 +72,10 @@
 // has been added someplace (preferably, somewhere in CryptRand.c)
 #define DRBG_DEBUG_PRINT            (NO  * DEBUG)
 
+// This define is used to control the debug for the CertifyX509 command.
+// 184_ONLY
+#define CERTIFYX509_DEBUG           (NO * DEBUG)
+
 // This provides fixed seeding of the RNG when doing debug on a simulator. This
 // should allow consistent results on test runs as long as the input parameters
 // to the functions remains the same.
@@ -154,6 +158,10 @@
 ////////////////////////////////////////////////////////////////
 // does the target system have longjmp support, AND we want to use it?
 #define LONGJMP_SUPPORTED           NO
+
+// This define is used to enable the new table-driven marshaling code.
+// 184_ONLY
+#define TABLE_DRIVEN_MARSHAL        NO
 
 // Enable the generation of RSA primes using a sieve.
 #define RSA_KEY_SIEVE               YES
