@@ -20,6 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             for archive in &source_archives {
                 println!("cargo:rerun-if-changed={}", archive.display());
             }
+            fuzzing::warn_if_prebuilt();
             source_archives
         }
         // Archives built in-tree live in `OUT_DIR`, and watching those would
@@ -128,6 +129,8 @@ mod tpm {
             // Fix CRT mismatch warnings
             cmake_config.define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreadedDLL");
         }
+
+        crate::fuzzing::configure(&mut cmake_config)?;
 
         match backend {
             Backend::OpenSsl => {
@@ -425,6 +428,200 @@ mod symbols {
         } else {
             OsString::from(tool)
         }
+    }
+}
+
+/// Instrumenting the TPM's C code when this crate is built for a fuzzer.
+mod fuzzing {
+    use crate::util;
+    use std::ffi::OsStr;
+    use std::ffi::OsString;
+    use std::path::Path;
+    use std::path::PathBuf;
+
+    /// Whether Cargo is building this crate for a fuzzer.
+    ///
+    /// `cargo fuzz` puts `--cfg fuzzing` in `RUSTFLAGS`, which Cargo surfaces
+    /// to build scripts as this variable.
+    fn enabled() -> bool {
+        println!("cargo:rerun-if-env-changed=CARGO_CFG_FUZZING");
+        std::env::var_os("CARGO_CFG_FUZZING").is_some()
+    }
+
+    /// Instrument the TPM build to match how Cargo is building the Rust side.
+    ///
+    /// Rust's `-Zsanitizer` and libFuzzer's coverage instrumentation only cover
+    /// Rust code, which for this crate is a thin wrapper around the C library
+    /// that does the actual work. Left uninstrumented, the fuzzer would be
+    /// driving the code that parses commands blind, and AddressSanitizer would
+    /// only see what its allocator interceptors catch rather than the memory
+    /// errors inside that code.
+    pub(crate) fn configure(
+        cmake_config: &mut cmake::Config,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if !enabled() {
+            return Ok(());
+        }
+
+        // An explicitly empty value opts out of instrumenting the C code.
+        let flags = match util::env("TCG_TPM_FUZZ_CFLAGS") {
+            Some(flags) => flags,
+            None => default_flags(),
+        };
+        let flags: Vec<&OsStr> = flags
+            .to_str()
+            .ok_or("TCG_TPM_FUZZ_CFLAGS is not valid UTF-8")?
+            .split_whitespace()
+            .map(OsStr::new)
+            .collect();
+        if flags.is_empty() {
+            return Ok(());
+        }
+
+        if let Some(compiler) = compiler()? {
+            drop_stale_cmake_cache(&compiler)?;
+            cmake_config.define("CMAKE_C_COMPILER", &compiler);
+        }
+
+        for flag in flags {
+            cmake_config.cflag(flag);
+        }
+
+        Ok(())
+    }
+
+    /// CMake refuses to reconfigure an existing build tree with a different
+    /// compiler, which would turn something as ordinary as installing a newer
+    /// clang into a confusing build failure. Drop the cache so that CMake
+    /// configures from scratch instead.
+    fn drop_stale_cmake_cache(compiler: &Path) -> Result<(), Box<dyn std::error::Error>> {
+        // Where `cmake::Config` puts the build tree, given it inherits `OUT_DIR`.
+        let cache = PathBuf::from(std::env::var("OUT_DIR")?).join("build/CMakeCache.txt");
+        let Ok(contents) = fs_err::read_to_string(&cache) else {
+            return Ok(());
+        };
+
+        let cached = contents.lines().find_map(|line| {
+            line.strip_prefix("CMAKE_C_COMPILER:")?
+                .split_once('=')
+                .map(|(_, value)| Path::new(value))
+        });
+
+        if cached.is_some_and(|cached| cached != compiler) {
+            fs_err::remove_file(&cache)?;
+        }
+
+        Ok(())
+    }
+
+    /// Warn that `TCG_TPM_LIB_DIR` libraries are used as-is, since whoever
+    /// built them is the one who decides whether they're instrumented.
+    pub(crate) fn warn_if_prebuilt() {
+        if enabled() {
+            println!(
+                "cargo:warning=fuzzing against the pre-built TPM libraries in TCG_TPM_LIB_DIR; \
+                 unless they were built with sanitizer and coverage instrumentation, the fuzzer \
+                 will not see inside them"
+            );
+        }
+    }
+
+    /// The instrumentation to build the TPM with, mirroring what `cargo fuzz`
+    /// asks `rustc` for.
+    fn default_flags() -> OsString {
+        // Gives the C code the SanitizerCoverage instrumentation libFuzzer
+        // needs, without letting clang link in a `main` of its own.
+        let mut flags = String::from("-fsanitize=fuzzer-no-link");
+
+        // `-Zsanitizer=...` reaches build scripts as this variable, already
+        // comma-separated the way clang wants it.
+        println!("cargo:rerun-if-env-changed=CARGO_CFG_SANITIZE");
+        if let Some(sanitizers) = std::env::var_os("CARGO_CFG_SANITIZE")
+            && !sanitizers.is_empty()
+        {
+            flags.push_str(" -fsanitize=");
+            flags.push_str(&sanitizers.to_string_lossy());
+        }
+
+        flags.into()
+    }
+
+    /// The compiler to build the instrumented TPM with, or `None` to keep the
+    /// one the build is already configured to use.
+    ///
+    /// The flags above are clang-only: GCC has no `-fsanitize=fuzzer-no-link`,
+    /// and the `-fsanitize-coverage=trace-pc` scheme it does support was
+    /// removed from libFuzzer.
+    fn compiler() -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
+        if let Some(compiler) = util::env("TCG_TPM_FUZZ_CC") {
+            return Ok(Some(PathBuf::from(compiler)));
+        }
+
+        // Leave an already-clang compiler (and anything the caller pointed `CC`
+        // at) alone, so cross-compilation setups keep working.
+        if cc::Build::new().try_get_compiler()?.is_like_clang() {
+            return Ok(None);
+        }
+
+        let clang = find_clang().ok_or(
+            "fuzzing needs clang to instrument the TPM's C code, but none was found on PATH. \
+             Install clang, or point TCG_TPM_FUZZ_CC at one. To fuzz without instrumenting the \
+             C code - which leaves the fuzzer blind to the code that parses TPM commands - set \
+             TCG_TPM_FUZZ_CFLAGS to an empty value.",
+        )?;
+
+        Ok(Some(clang))
+    }
+
+    /// Look for clang on `PATH`.
+    fn find_clang() -> Option<PathBuf> {
+        // clang-cl is the driver that understands MSVC's command line.
+        let stem = if util::is_windows_msvc().ok()? {
+            "clang-cl"
+        } else {
+            "clang"
+        };
+
+        let path = std::env::var_os("PATH")?;
+        let mut newest: Option<(u32, PathBuf)> = None;
+
+        for dir in std::env::split_paths(&path) {
+            let unversioned = dir.join(format!("{stem}{}", std::env::consts::EXE_SUFFIX));
+            if unversioned.is_file() {
+                return Some(unversioned);
+            }
+
+            // Debian and its derivatives only ship versioned binaries unless
+            // the `clang` metapackage is installed, so fall back to the newest
+            // version that is installed.
+            let Ok(entries) = fs_err::read_dir(&dir) else {
+                continue;
+            };
+
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let Some(name) = name.to_str() else {
+                    continue;
+                };
+                let name = name
+                    .strip_suffix(std::env::consts::EXE_SUFFIX)
+                    .unwrap_or(name);
+
+                let Some(version) = name
+                    .strip_prefix(stem)
+                    .and_then(|version| version.strip_prefix('-'))
+                    .and_then(|version| version.parse::<u32>().ok())
+                else {
+                    continue;
+                };
+
+                if newest.as_ref().is_none_or(|(newest, _)| version > *newest) {
+                    newest = Some((version, entry.path()));
+                }
+            }
+        }
+
+        newest.map(|(_, path)| path)
     }
 }
 
