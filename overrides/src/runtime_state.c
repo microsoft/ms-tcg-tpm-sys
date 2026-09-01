@@ -25,7 +25,15 @@
 #define SESSION_C
 #include "Tpm.h"
 #include "Global.h"
+
+#if __has_include(<private/CryptCmac_fp.h>)
 #include <private/CryptCmac_fp.h>
+#else
+// 184_COMPAT
+#include <private/prototypes/CryptCmac_fp.h>
+typedef HASH_OBJECT SEQUENCE_OBJECT;
+#define CryptoHash_GetHashDef CryptGetHashDef
+#endif
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 

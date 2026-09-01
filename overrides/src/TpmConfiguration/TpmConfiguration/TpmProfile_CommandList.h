@@ -31,9 +31,9 @@
 
 // The TPM reference implementation does not implement attached-component
 // features, and the Compliance test suite has no test cases.
-// 184_ONLY
+// 184_COMPAT
 #define CC_AC_GetCapability           CC_NO
-// 184_ONLY
+// 184_COMPAT
 #define CC_AC_Send                    CC_NO
 
 // The TPM reference implementation does not implement firmware upgrade.
@@ -44,7 +44,7 @@
 // While all of the TPM reference implementation is provided "AS IS" without any
 // warranty, the current design and implementation of CertifyX509 are considered
 // to be especially unsuitable for product use.
-// 184_ONLY
+// 184_COMPAT
 #define CC_CertifyX509                CC_NO
 
 // Normal commands:
@@ -132,7 +132,7 @@
 #define CC_PolicySigned               CC_YES
 #define CC_PolicyTemplate             CC_YES
 #define CC_PolicyTicket               CC_YES
-// 184_ONLY
+// 184_COMPAT
 #define CC_Policy_AC_SendSelect       CC_NO
 #define CC_Quote                      CC_YES
 #define CC_ReadClock                  CC_YES
