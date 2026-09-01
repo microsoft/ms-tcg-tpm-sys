@@ -9,10 +9,10 @@
 
 // Vendor identity.
 const MANUFACTURER: u32 = u32::from_be_bytes(*b"MSFT");
-const VENDOR_STRING_1: u32 = u32::from_be_bytes(*b"Azur");
-const VENDOR_STRING_2: u32 = u32::from_be_bytes(*b"e vT");
-const VENDOR_STRING_3: u32 = u32::from_be_bytes(*b"PM  ");
-const VENDOR_STRING_4: u32 = u32::from_be_bytes(*b"    ");
+const VENDOR_STRING_1: u32 = u32::from_be_bytes(*b"TPM ");
+const VENDOR_STRING_2: u32 = u32::from_be_bytes(*b"Simu");
+const VENDOR_STRING_3: u32 = u32::from_be_bytes(*b"lato");
+const VENDOR_STRING_4: u32 = u32::from_be_bytes(*b"r   ");
 
 // Firmware version.
 const FIRMWARE_V1: u32 = 0x20200312;
