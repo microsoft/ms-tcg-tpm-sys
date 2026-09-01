@@ -25,7 +25,16 @@
 #define SESSION_C
 #include "Tpm.h"
 #include "Global.h"
+
+#if __has_include(<private/CryptCmac_fp.h>)
 #include <private/CryptCmac_fp.h>
+#else
+// 184_COMPAT
+#include <private/prototypes/CryptCmac_fp.h>
+typedef HASH_OBJECT SEQUENCE_OBJECT;
+typedef HASH_OBJECT_BUFFER SEQUENCE_OBJECT_BUFFER;
+#define CryptoHash_GetHashDef CryptGetHashDef
+#endif
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
@@ -215,6 +224,7 @@ ImportSequenceObjectStates(void)
 
         SEQUENCE_OBJECT *sequence = (SEQUENCE_OBJECT *)object;
 
+#ifdef TPM_ALG_MLDSA
         // An ML-DSA sequence holds a crypto handle in this union rather than
         // hash contexts, and those bytes could read as HASH_STATE_SMAC. Both
         // halves of the test matter and mirror SequenceDataImport()'s own
@@ -226,6 +236,7 @@ ImportSequenceObjectStates(void)
         {
             continue;
         }
+#endif
 
         // The import restores an SMAC context with a plain memcpy, leaving the
         // saving process's method pointers in place.

@@ -8,25 +8,27 @@ use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let backend = Backend::from_env()?;
-    let libraries = backend.tpm_archives();
 
     // users can link against pre-built libs if they don't want to use the
     // version included in-tree
-    let source_archives = match util::env("TCG_TPM_LIB_DIR") {
+    let (libraries, source_archives) = match util::env("TCG_TPM_LIB_DIR") {
         Some(var) => {
             let lib_dir = PathBuf::from(var);
             println!("cargo:rerun-if-changed={}", lib_dir.display());
+            let libraries = backend.tpm_archives(&lib_dir)?;
             let source_archives = tpm::source_archives(&lib_dir, libraries)?;
             for archive in &source_archives {
                 println!("cargo:rerun-if-changed={}", archive.display());
             }
-            source_archives
+            (libraries, source_archives)
         }
         // Archives built in-tree live in `OUT_DIR`, and watching those would
         // make the build script rerun on every build.
         None => {
             let lib_dir = tpm::compile(&backend)?;
-            tpm::source_archives(&lib_dir, libraries)?
+            let libraries = backend.tpm_archives(&lib_dir)?;
+            let source_archives = tpm::source_archives(&lib_dir, libraries)?;
+            (libraries, source_archives)
         }
     };
 
@@ -62,10 +64,13 @@ mod backend {
         }
 
         /// The TPM archives to namespace and link, in link order.
-        pub(crate) fn tpm_archives(&self) -> &'static [&'static str] {
+        pub(crate) fn tpm_archives(
+            &self,
+            lib_dir: &std::path::Path,
+        ) -> Result<&'static [&'static str], Box<dyn std::error::Error>> {
             match self {
-                Self::OpenSsl => super::openssl::TPM_ARCHIVES,
-                Self::SymCrypt => super::symcrypt::TPM_ARCHIVES,
+                Self::OpenSsl => super::openssl::tpm_archives(lib_dir),
+                Self::SymCrypt => Ok(super::symcrypt::TPM_ARCHIVES),
             }
         }
     }
@@ -228,8 +233,32 @@ mod openssl {
         Ok(())
     }
 
-    /// The TPM archives the OpenSSL backend produces, in link order.
-    pub(crate) const TPM_ARCHIVES: &[&str] = &[
+    pub(crate) fn tpm_archives(
+        lib_dir: &Path,
+    ) -> Result<&'static [&'static str], Box<dyn std::error::Error>> {
+        let v184_archive = lib_dir.join(util::archive_file_name("Tpm_CryptoLib_TpmBigNum")?);
+        let azure_archive = lib_dir.join(util::archive_file_name("Tpm_CryptoLib_Math_TpmBigNum")?);
+
+        match (v184_archive.is_file(), azure_archive.is_file()) {
+            (true, false) => Ok(TPM_184_ARCHIVES),
+            (false, true) => Ok(AZURE_TPM_ARCHIVES),
+            _ => Err(format!(
+                "could not identify TPM archive layout in {}",
+                lib_dir.display()
+            )
+            .into()),
+        }
+    }
+
+    /// The TPM 1.84 archives the OpenSSL backend produces, in link order.
+    const TPM_184_ARCHIVES: &[&str] = &[
+        "Tpm_CoreLib",
+        "Tpm_CryptoLib_TpmBigNum",
+        "Tpm_CryptoLib_Math_Ossl",
+    ];
+
+    /// The Azure TPM archives the OpenSSL backend produces, in link order.
+    const AZURE_TPM_ARCHIVES: &[&str] = &[
         "Tpm_CoreLib",
         // These two are folded into BnMath_Ossl
         //"Tpm_CryptoLib_Symmetric_Ossl",

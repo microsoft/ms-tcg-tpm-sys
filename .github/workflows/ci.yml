@@ -18,6 +18,8 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
   RUSTDOCFLAGS: -D warnings
+  AZURE_TPM_COMMIT: f53b8997454ddf6a2e4586602852be81f3dbff33
+  AZURE_TPM_URL: https://microsoft@dev.azure.com/microsoft/TPM/_git/TPM-Internal
 
 jobs:
   rust:
@@ -27,27 +29,49 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: openssl (linux)
+          - name: openssl (oss, linux)
             runner: ubuntu-latest
             features: openssl,vendored
-          - name: openssl (linux arm64)
+            tpm_source: oss
+          - name: openssl (oss, linux arm64)
             runner: ubuntu-24.04-arm
             features: openssl,vendored
-          - name: openssl (windows)
+            tpm_source: oss
+          - name: openssl (oss, windows)
             runner: windows-latest
             features: openssl,vendored
-          - name: openssl (windows arm64)
+            tpm_source: oss
+          - name: openssl (oss, windows arm64)
             runner: windows-11-arm
             features: openssl,vendored
+            tpm_source: oss
+          - name: openssl (azure, linux)
+            runner: ubuntu-latest
+            features: openssl,vendored
+            tpm_source: azure
+          - name: openssl (azure, linux arm64)
+            runner: ubuntu-24.04-arm
+            features: openssl,vendored
+            tpm_source: azure
+          - name: openssl (azure, windows)
+            runner: windows-latest
+            features: openssl,vendored
+            tpm_source: azure
+          - name: openssl (azure, windows arm64)
+            runner: windows-11-arm
+            features: openssl,vendored
+            tpm_source: azure
           # The prebuilt SymCrypt is a musl build
-          - name: symcrypt (linux)
+          - name: symcrypt (azure, linux)
             runner: ubuntu-latest
             features: symcrypt,vendored
             target: x86_64-unknown-linux-musl
-          - name: symcrypt (linux arm64)
+            tpm_source: azure
+          - name: symcrypt (azure, linux arm64)
             runner: ubuntu-24.04-arm
             features: symcrypt,vendored
             target: aarch64-unknown-linux-musl
+            tpm_source: azure
     env:
       # Only consulted when building for the corresponding musl target. The TPM's
       # CMake enables CXX even though `Tpm_BuildOption_LibOnly` compiles only C,
@@ -59,7 +83,11 @@ jobs:
       CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
       CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
     steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
       - name: Authenticate to Azure
+        if: matrix.tpm_source == 'azure'
         uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -67,6 +95,7 @@ jobs:
           allow-no-subscriptions: true
 
       - name: Get Azure DevOps access token
+        if: matrix.tpm_source == 'azure'
         id: azure_devops_token
         shell: bash
         run: |
@@ -78,14 +107,23 @@ jobs:
           echo "::add-mask::$token"
           printf 'token=%s\n' "$token" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout (with submodules)
-        uses: actions/checkout@v5
+      - name: Checkout OSS TPM submodule
+        if: matrix.tpm_source == 'oss'
+        run: git submodule update --init --recursive
+
+      - name: Checkout Azure TPM submodule
+        if: matrix.tpm_source == 'azure'
+        shell: bash
         env:
           GIT_CONFIG_COUNT: 1
           GIT_CONFIG_KEY_0: http.https://microsoft@dev.azure.com/microsoft.extraheader
           GIT_CONFIG_VALUE_0: "AUTHORIZATION: bearer ${{ steps.azure_devops_token.outputs.token }}"
-        with:
-          submodules: recursive
+        run: |
+          git init --quiet TPM
+          git -C TPM remote add origin "$AZURE_TPM_URL"
+          git -C TPM fetch --depth=1 origin "$AZURE_TPM_COMMIT"
+          git -C TPM checkout --detach FETCH_HEAD
+          git -C TPM submodule update --init --recursive
 
       - name: Install Rust components
         run: rustup component add clippy rustfmt
