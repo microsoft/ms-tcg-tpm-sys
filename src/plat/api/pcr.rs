@@ -97,6 +97,7 @@ const TPM_ALG_SHA512: u16 = 0x000D;
 
 // DefaultActivePcrBanks from PlatformPcr.c, selected by TpmProfile_Common.h.
 // SHA-1 is enabled by default here for UEFI compatibility. Note: the upstream reference platform defaults exclude SHA-1.
+// CHANGED_FROM_DEFAULT
 const DEFAULT_ACTIVE_PCR_BANKS: &[u16] = &[TPM_ALG_SHA1, TPM_ALG_SHA256, TPM_ALG_SHA384];
 
 // Digest sizes from TpmAlgorithmDefines.h for all enabled PCR hash algorithms.
