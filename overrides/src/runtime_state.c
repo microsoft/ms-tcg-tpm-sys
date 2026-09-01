@@ -37,36 +37,24 @@ typedef HASH_OBJECT SEQUENCE_OBJECT;
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
-//
 // The header structure for vTPM run-time state blob.
-//
 typedef struct tag_TPM_RUNTIME_STATE_HEADER
 {
-    //
     // Contains a sequence of "VTPMRTST".
-    //
     uint64_t HeaderMagic64;
 
-    //
-    // A number which has to match the local vTPM platform revision number to ensure the same set of static variables is getting saved and restored.
-    //
+    // Must match the local vTPM platform revision, so that a blob is only ever
+    // applied to a build saving the same set of variables.
     uint32_t Revision;
 
-    //
     // Number of variables for which the data is present in the runtime state blob.
-    //
     uint32_t VariableCount;
 
 } TPM_RUNTIME_STATE_HEADER, *PTPM_RUNTIME_STATE_HEADER;
 
-//
-// Runtime state header magic value of "VTPMRTST".
-//
-static const uint64_t s_RuntimeStateHeaderMagic = 0x545354524D505456;
+static const uint64_t s_RuntimeStateHeaderMagic = 0x545354524D505456;  // "VTPMRTST"
 
-//
-// Increment this revision on every change to the number or type of global static variables used by the TPM engine.
-//
+// Increment on every change to the number or type of globals saved below.
 static const uint32_t s_RuntimeStateRevision = 0x10;
 
 // The variable table below is only complete for the build switches this profile
@@ -74,30 +62,28 @@ static const uint32_t s_RuntimeStateRevision = 0x10;
 TPM_STATIC_ASSERT(ACCUMULATE_SELF_HEAL_TIMER == YES);  // else s_selfHealTimer + s_lockoutTimer
 TPM_STATIC_ASSERT(VENDOR_PERMANENT_AUTH_ENABLED == NO);  // else g_platformUniqueAuth
 TPM_STATIC_ASSERT(CLOCK_STOPS == YES);  // else g_timeEpoch aliases gp.timeEpoch
+TPM_STATIC_ASSERT(USE_DA_USED == YES);  // else g_daUsed below is not declared
+TPM_STATIC_ASSERT(ACT_SUPPORT == NO);  // else s_ActUpdated
+TPM_STATIC_ASSERT(SIMULATION == NO);  // else simulation-only state
+TPM_STATIC_ASSERT(DEBUG == NO);  // else debug-only state
+TPM_STATIC_ASSERT(RSA_INSTRUMENT == NO);  // else RSA instrumentation state
+TPM_STATIC_ASSERT(USE_RSA_KEY_CACHE == NO);  // else RSA key cache state
 
-//
 // Contains information about a single run-time variable.
-//
 typedef struct tag_TPM_RUNTIME_STATE_ENTRY
 {
-    //
     // Pointer to a variable.
-    //
     void *pbRuntimeVariable;
 
-    //
     // Variable size.
-    //
     const uint32_t cbVariableSize;
 
 } TPM_RUNTIME_STATE_ENTRY;
 
-//
 // Enumerates all run-time variables inside the TPM engine and platform (as defined in Global.h).
-//
 static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
     {
-        {(char *)&g_implementedAlgorithms, sizeof(g_implementedAlgorithms)},
+        // {(char *)&g_implementedAlgorithms, sizeof(g_implementedAlgorithms)},
         {(char *)&g_toTest, sizeof(g_toTest)},
         {(char *)&g_exclusiveAuditSession, sizeof(g_exclusiveAuditSession)},
         {(char *)&g_time, sizeof(g_time)},
@@ -108,12 +94,12 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         {(char *)&g_DrtmPreStartup, sizeof(g_DrtmPreStartup)},
         {(char *)&g_StartupLocality3, sizeof(g_StartupLocality3)},
         {(char *)&g_daUsed, sizeof(g_daUsed)},
-        {(char *)&g_updateNV, sizeof(g_updateNV)},
+        // {(char *)&g_updateNV, sizeof(g_updateNV)},
         {(char *)&g_powerWasLost, sizeof(g_powerWasLost)},
-        {(char *)&g_clearOrderly, sizeof(g_clearOrderly)},
+        // {(char *)&g_clearOrderly, sizeof(g_clearOrderly)},
         {(char *)&g_prevOrderlyState, sizeof(g_prevOrderlyState)},
         {(char *)&g_nvOk, sizeof(g_nvOk)},
-        {(char *)&g_NvStatus, sizeof(g_NvStatus)},
+        // {(char *)&g_NvStatus, sizeof(g_NvStatus)},
         {(char *)&gp, sizeof(gp)},
         {(char *)&go, sizeof(go)},
         {(char *)&gc, sizeof(gc)},
@@ -122,25 +108,33 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         {(char *)&g_manufactured, sizeof(g_manufactured)},
         {(char *)&g_initialized, sizeof(g_initialized)},
         {(char *)&g_initCompleted, sizeof(g_initCompleted)},
-        {(char *)s_sessionHandles, sizeof(s_sessionHandles)},
-        {(char *)s_attributes, sizeof(s_attributes)},
-        {(char *)s_associatedHandles, sizeof(s_associatedHandles)},
-        {(char *)s_nonceCaller, sizeof(s_nonceCaller)},
-        {(char *)s_inputAuthValues, sizeof(s_inputAuthValues)},
-        {(char *)&s_encryptSessionIndex, sizeof(s_encryptSessionIndex)},
-        {(char *)&s_decryptSessionIndex, sizeof(s_decryptSessionIndex)},
-        {(char *)&s_auditSessionIndex, sizeof(s_auditSessionIndex)},
-        {(char *)&s_cpHashForCommandAudit, sizeof(s_cpHashForCommandAudit)},
+        // {(char *)s_sessionHandles, sizeof(s_sessionHandles)},
+        // {(char *)s_attributes, sizeof(s_attributes)},
+        // {(char *)s_associatedHandles, sizeof(s_associatedHandles)},
+        // {(char *)s_nonceCaller, sizeof(s_nonceCaller)},
+        // {(char *)s_inputAuthValues, sizeof(s_inputAuthValues)},
+        // {(char *)s_usedSessions, sizeof(s_usedSessions)},
+        // {(char *)&s_encryptSessionIndex, sizeof(s_encryptSessionIndex)},
+        // {(char *)&s_decryptSessionIndex, sizeof(s_decryptSessionIndex)},
+        // {(char *)&s_auditSessionIndex, sizeof(s_auditSessionIndex)},
+        // {(char *)&s_cpHashForCommandAudit, sizeof(s_cpHashForCommandAudit)},
         {(char *)&s_DAPendingOnNV, sizeof(s_DAPendingOnNV)},
-        {(char *)&s_evictNvEnd, sizeof(s_evictNvEnd)},
+        // {(char *)&s_evictNvEnd, sizeof(s_evictNvEnd)},
         {(char *)&s_indexOrderlyRam, sizeof(s_indexOrderlyRam)},
         {(char *)&s_maxCounter, sizeof(s_maxCounter)},
+        // {(char *)&s_cachedNvIndex, sizeof(s_cachedNvIndex)},
+        // {(char *)&s_cachedNvRef, sizeof(s_cachedNvRef)},
+        // {(char *)&s_cachedNvRamRef, sizeof(s_cachedNvRamRef)},
         {(char *)s_objects, sizeof(s_objects)},
         {(char *)s_pcrs, sizeof(s_pcrs)},
         {(char *)s_sessions, sizeof(s_sessions)},
         {(char *)&s_oldestSavedSession, sizeof(s_oldestSavedSession)},
         {(char *)&s_freeSessionSlots, sizeof(s_freeSessionSlots)},
-        {(char *)&s_ActUpdated, sizeof(s_ActUpdated)},
+        // {(char *)s_actionIoBuffer, sizeof(s_actionIoBuffer)},
+        // {(char *)&s_actionIoAllocation, sizeof(s_actionIoAllocation)},
+        // {(char *)&s_ActUpdated, sizeof(s_ActUpdated)},
+        // {(char *)failure_response_buffer, sizeof(failure_response_buffer)},
+        // {(char *)&primeLimit, sizeof(primeLimit)},
 
         // Deliberately excluded, all re-initialized before use within a single
         // ExecuteCommand() and therefore never live across a save/restore:
@@ -148,14 +142,34 @@ static const TPM_RUNTIME_STATE_ENTRY s_TpmRuntimeVariables[] =
         //  - failure_response_buffer (TpmFail.c)
         //  - primeLimit (CryptPrimeSieve.c)
         //  - the static scratch buffers in AlgorithmTests.c
+        //  - s_sessionHandles / s_attributes / s_associatedHandles /
+        //    s_nonceCaller / s_inputAuthValues and s_encryptSessionIndex /
+        //    s_decryptSessionIndex / s_auditSessionIndex
+        //    (RetrieveSessionData())
+        //  - g_updateNV / g_clearOrderly (ExecuteCommand(), including its
+        //    failure-mode return)
+        //  - g_NvStatus (NvCheckState(), before any reader)
+        //
+        // Also deliberately excluded:
+        //  - g_implementedAlgorithms carries no information:
+        //    AlgorithmGetImplementedVector() derives it entirely from the
+        //    compile-time s_algorithms[] table during _TPM_Init()
+        //  - s_evictNvEnd is initialized from the compile-time NV_MEMORY_SIZE
+        //    during _TPM_Init(), before runtime state can be applied
+        //  - s_usedSessions is never referenced by the TPM implementation
+        //  - s_cpHashForCommandAudit is never referenced by the TPM implementation
+        //  - s_ActUpdated is unused because this profile disables ACT support
 };
 
-// Sequence objects live in s_objects type-punned as SEQUENCE_OBJECT, and cache a
-// HASH_DEF* (and, for CMAC, two method pointers) that are addresses in the
-// saving process's image. Rebuild them the way CryptoHash_ImportState does
-// instead of trusting whatever came out of the blob.
+// Swaps each sequence object's running state for its exported form in a saved
+// copy of `s_objects`.
+//
+// SequenceDataExport() is the library's own TPM2_ContextSave path: it replaces
+// an ML-DSA crypto handle with its serialized form and runs each hash context
+// through the backend's copyOut, either of which would otherwise leave an
+// address from this process in the blob.
 static void
-RebindSequenceObjectMethods(void)
+ExportSequenceObjectStates(char *savedObjects)
 {
     for (uint32_t i = 0; i < ARRAY_SIZE(s_objects); i++)
     {
@@ -166,39 +180,87 @@ RebindSequenceObjectMethods(void)
             continue;
         }
 
+        // Staged through an aligned copy because the blob is packed, and
+        // because export needs a destination distinct from the live object.
+        OBJECT staged = *object;
+
+        SequenceDataExport((SEQUENCE_OBJECT *)object, (SEQUENCE_OBJECT_BUFFER *)&staged);
+        memcpy(savedObjects + (size_t)i * sizeof(OBJECT), &staged, sizeof(staged));
+    }
+}
+
+// Rebuilds the running state of every sequence object, in place.
+//
+// SequenceDataImport() is the library's own TPM2_ContextLoad path: it rebinds
+// HASH_STATE.def, runs the backend's hash-context copyIn, and turns an exported
+// ML-DSA state back into a live crypto handle.
+//
+// Runs after the blob has been copied over s_objects, so the exported form is
+// already there; it is staged out because the ML-DSA branch writes a fresh
+// handle into the same union it reads the exported form from.
+static bool
+ImportSequenceObjectStates(void)
+{
+    bool wasInFailureMode = _plat__InFailureMode();
+
+    for (uint32_t i = 0; i < ARRAY_SIZE(s_objects); i++)
+    {
+        OBJECT *object = &s_objects[i];
+
+        if (object->attributes.occupied != TRUE || !ObjectIsSequence(object))
+        {
+            continue;
+        }
+
+        OBJECT staged = *object;
+
+        SequenceDataImport((SEQUENCE_OBJECT *)object, (SEQUENCE_OBJECT_BUFFER *)&staged);
+
+        if (!wasInFailureMode && _plat__InFailureMode())
+        {
+            return false;
+        }
+
         SEQUENCE_OBJECT *sequence = (SEQUENCE_OBJECT *)object;
 
-        // An event sequence runs one hash per PCR bank; hash and HMAC sequences
-        // only ever use the first slot.
+        // An ML-DSA sequence holds a crypto handle in this union rather than
+        // hash contexts, and those bytes could read as HASH_STATE_SMAC. Both
+        // halves of the test matter and mirror SequenceDataImport()'s own
+        // dispatch: AllocateSequenceSlot() leaves signScheme uninitialized, so
+        // on its own the scheme can be a stale TPM_ALG_MLDSA from a previous
+        // tenant of the slot.
+        if ((object->attributes.signSeq == SET || object->attributes.verifySeq == SET)
+            && sequence->signScheme.scheme == TPM_ALG_MLDSA)
+        {
+            continue;
+        }
+
+        // The import restores an SMAC context with a plain memcpy, leaving the
+        // saving process's method pointers in place.
         int count = (sequence->attributes.eventSeq) ? HASH_COUNT : 1;
 
         for (int j = 0; j < count; j++)
         {
             HASH_STATE *hash = &sequence->state.hashState[j];
 
-#ifdef HASH_STATE_SMAC
             if (hash->type == HASH_STATE_SMAC)
             {
                 hash->def = NULL;
                 hash->state.smac.smacMethods.data = CryptCmacData;
                 hash->state.smac.smacMethods.end = CryptCmacEnd;
-                continue;
             }
-#endif
-            // Yields the null descriptor for TPM_ALG_NULL or an unknown
-            // algorithm, so a corrupt blob can't leave a stale pointer behind.
-            hash->def = CryptoHash_GetHashDef(hash->hashAlg);
         }
     }
+
+    return true;
 }
 
 static uint32_t
 GetRuntimeStateSize(void)
 {
     uint32_t totalSize = 0;
-    uint32_t i;
 
-    for (i = 0; i < ARRAY_SIZE(s_TpmRuntimeVariables); i++)
+    for (uint32_t i = 0; i < ARRAY_SIZE(s_TpmRuntimeVariables); i++)
     {
         totalSize += s_TpmRuntimeVariables[i].cbVariableSize;
     }
@@ -228,17 +290,30 @@ int INJECTED_GetRuntimeState(
         return 2;
     }
 
-    PTPM_RUNTIME_STATE_HEADER pHeader = (PTPM_RUNTIME_STATE_HEADER)pBuffer;
+    // The caller's buffer is a byte array with no alignment guarantee, so the
+    // header is assembled locally and copied in rather than written through a
+    // struct pointer into it.
+    TPM_RUNTIME_STATE_HEADER header;
 
-    pHeader->HeaderMagic64 = s_RuntimeStateHeaderMagic;
-    pHeader->Revision = s_RuntimeStateRevision;
-    pHeader->VariableCount = ARRAY_SIZE(s_TpmRuntimeVariables);
+    header.HeaderMagic64 = s_RuntimeStateHeaderMagic;
+    header.Revision = s_RuntimeStateRevision;
+    header.VariableCount = ARRAY_SIZE(s_TpmRuntimeVariables);
 
-    char *pRuntimeState = (char *)(pHeader + 1);
+    memcpy(pBuffer, &header, sizeof(header));
+
+    char *pRuntimeState = (char *)pBuffer + sizeof(header);
 
     for (uint32_t i = 0; i < ARRAY_SIZE(s_TpmRuntimeVariables); i++)
     {
         memcpy(pRuntimeState, s_TpmRuntimeVariables[i].pbRuntimeVariable, s_TpmRuntimeVariables[i].cbVariableSize);
+
+        // Done here rather than after the loop so there is no case where the
+        // object image was not found: the blob would otherwise be emitted
+        // carrying a pointer into this process.
+        if (s_TpmRuntimeVariables[i].pbRuntimeVariable == (char *)s_objects)
+        {
+            ExportSequenceObjectStates(pRuntimeState);
+        }
 
         pRuntimeState += s_TpmRuntimeVariables[i].cbVariableSize;
     }
@@ -253,6 +328,7 @@ int INJECTED_GetRuntimeState(
 // - 1 for invalid arg
 // - 2 for size mismatch
 // - 3 for format validation error
+// - 4 for sequence state import error
 int INJECTED_ApplyRuntimeState(
     const void *pRuntimeStateBuffer,
     uint32_t runtimeStateBufferSize)
@@ -269,16 +345,27 @@ int INJECTED_ApplyRuntimeState(
         return 2;
     }
 
-    PTPM_RUNTIME_STATE_HEADER pHeader = (PTPM_RUNTIME_STATE_HEADER)pRuntimeStateBuffer;
+    // Copied out rather than read through a struct pointer: the blob is a byte
+    // buffer with no alignment guarantee, and it is const.
+    TPM_RUNTIME_STATE_HEADER header;
 
-    if (pHeader->HeaderMagic64 != s_RuntimeStateHeaderMagic ||
-        pHeader->Revision != s_RuntimeStateRevision ||
-        pHeader->VariableCount != ARRAY_SIZE(s_TpmRuntimeVariables))
+    memcpy(&header, pRuntimeStateBuffer, sizeof(header));
+
+    if (header.HeaderMagic64 != s_RuntimeStateHeaderMagic
+        || header.Revision != s_RuntimeStateRevision
+        || header.VariableCount != ARRAY_SIZE(s_TpmRuntimeVariables))
     {
         return 3;
     }
 
-    char *pRuntimeState = (char *)(pHeader + 1);
+    const char *pRuntimeState = (const char *)pRuntimeStateBuffer + sizeof(header);
+
+    // s_objects is about to be overwritten, taking with it the only reference
+    // to any crypto library state a sequence object still owns.
+    for (uint32_t i = 0; i < ARRAY_SIZE(s_objects); i++)
+    {
+        ObjectFlush(&s_objects[i]);
+    }
 
     for (uint32_t i = 0; i < ARRAY_SIZE(s_TpmRuntimeVariables); i++)
     {
@@ -291,7 +378,10 @@ int INJECTED_ApplyRuntimeState(
     // part of the blob, so drop whatever this process happened to have cached.
     NvIndexCacheInit();
 
-    RebindSequenceObjectMethods();
+    if (!ImportSequenceObjectStates())
+    {
+        return 4;
+    }
 
     return 0;
 }

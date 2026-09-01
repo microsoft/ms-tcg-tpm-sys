@@ -21,6 +21,7 @@ unsafe extern "C" {
     // - 1 for invalid arg
     // - 2 for size mismatch
     // - 3 for format validation error
+    // - 4 for sequence state import error
     #[link_name = "ms_tcg_tpm_185_INJECTED_ApplyRuntimeState"]
     pub fn INJECTED_ApplyRuntimeState(pBuffer: *const u8, pBufferSize: u32) -> i32;
 }
@@ -61,6 +62,7 @@ pub fn restore_runtime_state(state: MsTpm185LibraryState) -> Result<(), Error> {
         1 => unreachable!(), // API is being used correctly
         2 => Err(Error::InvalidRestoreSize),
         3 => Err(Error::InvalidRestoreFormat),
+        4 => Err(Error::FailedRestore(ret)),
         _ => unreachable!(),
     }
 }

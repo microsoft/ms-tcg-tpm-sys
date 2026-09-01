@@ -117,6 +117,7 @@ mod tpm {
             // the Cargo profile, so the archive output directory below always
             // matches.
             .profile("RelWithDebInfo")
+            .cflag("-DNDEBUG")
             // We only want the core library
             .define("Tpm_BuildOption_LibOnly", "1")
             // Building `install` (or `all`) also compiles the crypto providers

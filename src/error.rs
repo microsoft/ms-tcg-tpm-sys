@@ -38,6 +38,8 @@ pub enum Error {
     InvalidRestoreSize,
     /// Invalid saved state format
     InvalidRestoreFormat,
+    /// Attempting to restore saved state encountered an error
+    FailedRestore(i32),
 }
 
 /// Alias for `Result<T, Box<dyn std::error::Error + Send + Sync>>`
@@ -80,6 +82,9 @@ impl fmt::Display for Error {
             FailedPlatformRestore(e) => write!(f, "failed restore: {}", e),
             InvalidRestoreSize => write!(f, "invalid saved state size"),
             InvalidRestoreFormat => write!(f, "invalid saved state format"),
+            FailedRestore(code) => {
+                write!(f, "failed to restore saved state: error code {:#x}", code)
+            }
         }
     }
 }
