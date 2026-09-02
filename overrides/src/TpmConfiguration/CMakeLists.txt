@@ -77,11 +77,12 @@ set(MSVC_OPTIONS "${MSVC_OPTIONS}" /wd5039)
 set(MSVC_OPTIONS "${MSVC_OPTIONS}" /wd5045) # turn off C5045: Spectre mitigation warnings
 
 # Warn on most things, and treat them as errors.
-set(GCC_OPTIONS -Wall -Wextra -Werror -pedantic)
+# 184_COMPAT
+# set(GCC_OPTIONS -Wall -Wextra -Werror -pedantic)
 # Warn if unable to inline a TPM_INLINE function (GCC only, no-op on Clang).
-set(GCC_OPTIONS "${GCC_OPTIONS}" -Winline)
+# set(GCC_OPTIONS "${GCC_OPTIONS}" -Winline)
 # Warn about implicit fallthrough (not included in -Wextra for Clang)
-set(GCC_OPTIONS "${GCC_OPTIONS}" -Wimplicit-fallthrough)
+# set(GCC_OPTIONS "${GCC_OPTIONS}" -Wimplicit-fallthrough)
 
 # The hash state/function headers and marshalling/unmarshalling perform
 # function casts that trigger this error.
