@@ -339,13 +339,13 @@ mod symcrypt {
 /// Prefixing the TPM's symbols so a binary can link this crate alongside
 /// another copy of the reference code.
 mod symbols {
-    use crate::util;
     use std::collections::BTreeSet;
     use std::ffi::OsStr;
     use std::ffi::OsString;
     use std::fmt::Write as _;
     use std::path::PathBuf;
     use std::process::Command;
+    use std::process::Stdio;
 
     const SYMBOL_PREFIX: &str = "ms_tcg_tpm_185_";
     /// Naming convention for the platform callbacks the TPM library expects.
@@ -357,8 +357,8 @@ mod symbols {
         source_archives: &[PathBuf],
     ) -> Result<(), Box<dyn std::error::Error>> {
         let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
-        let objcopy = util::env("TCG_TPM_OBJCOPY").unwrap_or_else(|| default_tool("objcopy"));
-        let nm = util::env("TCG_TPM_NM").unwrap_or_else(|| default_tool("nm"));
+        let objcopy = find_tool("objcopy")?;
+        let nm = find_tool("nm")?;
         println!("cargo:rustc-link-search=native={}", out_dir.display());
 
         let renames = renames(&nm, source_archives)?;
@@ -448,12 +448,52 @@ mod symbols {
             .collect())
     }
 
-    fn default_tool(tool: &str) -> OsString {
-        let target = std::env::var("TARGET").unwrap();
-        if target.ends_with("-msvc") || target.contains("-apple-") {
-            OsString::from(format!("llvm-{tool}"))
-        } else {
-            OsString::from(tool)
+    fn find_tool(tool: &str) -> Result<OsString, Box<dyn std::error::Error>> {
+        let host = std::env::var("HOST")?;
+        let target = std::env::var("TARGET")?;
+        let cross_compiling = host != target;
+        let same_architecture = host.split('-').next() == target.split('-').next();
+        let mut candidates = Vec::new();
+
+        if cross_compiling {
+            add_prefixed_candidates(&mut candidates, &target, tool);
+            if same_architecture {
+                add_prefixed_candidates(&mut candidates, &host, tool);
+            }
+        }
+
+        if cross_compiling || target.ends_with("-msvc") || target.contains("-apple-") {
+            candidates.push(OsString::from(format!("llvm-{tool}")));
+        }
+        if !cross_compiling {
+            candidates.push(OsString::from(tool));
+        }
+
+        for candidate in &candidates {
+            if Command::new(candidate)
+                .arg("--version")
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .is_ok()
+            {
+                return Ok(candidate.clone());
+            }
+        }
+
+        let candidates = candidates
+            .iter()
+            .map(|candidate| candidate.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join(", ");
+        Err(format!("could not find {tool}; tried {candidates}").into())
+    }
+
+    fn add_prefixed_candidates(candidates: &mut Vec<OsString>, target: &str, tool: &str) {
+        let target_prefix = target.replace("-unknown-", "-");
+        candidates.push(OsString::from(format!("{target_prefix}-{tool}")));
+        if target_prefix != target {
+            candidates.push(OsString::from(format!("{target}-{tool}")));
         }
     }
 }
