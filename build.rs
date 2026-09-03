@@ -454,7 +454,6 @@ mod symbols {
 }
 
 mod tool_discovery {
-    use std::collections::BTreeSet;
     use std::ffi::OsString;
     use std::process::Command;
     use std::process::Stdio;
@@ -470,7 +469,7 @@ mod tool_discovery {
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .status()
-                .is_ok()
+                .is_ok_and(|status| status.success())
             {
                 return Ok(candidate.clone());
             }
@@ -484,12 +483,12 @@ mod tool_discovery {
         Err(format!("could not find {tool}; tried {candidates}").into())
     }
 
-    fn candidates(host: &str, target: &str, tool: &str) -> BTreeSet<OsString> {
+    fn candidates(host: &str, target: &str, tool: &str) -> Vec<OsString> {
         let cross_compiling = host != target;
         let host_arch = host.split('-').next().unwrap_or(host);
         let target_arch = target.split('-').next().unwrap_or(target);
         let same_architecture = host_arch == target_arch;
-        let mut candidates = BTreeSet::new();
+        let mut candidates = Vec::new();
 
         if cross_compiling {
             add_target_prefixed(&mut candidates, target, tool);
@@ -498,7 +497,10 @@ mod tool_discovery {
             // Linux distributions generally package them with a GNU prefix even
             // when the Rust target uses musl.
             if target.contains("-linux-") {
-                candidates.insert(format!("{}-linux-gnu-{tool}", target_arch).into());
+                push_candidate(
+                    &mut candidates,
+                    format!("{}-linux-gnu-{tool}", target_arch).into(),
+                );
             }
 
             if same_architecture {
@@ -507,20 +509,26 @@ mod tool_discovery {
         }
 
         if cross_compiling || target.ends_with("-msvc") || target.contains("-apple-") {
-            candidates.insert(format!("llvm-{tool}").into());
+            push_candidate(&mut candidates, format!("llvm-{tool}").into());
         }
         if !cross_compiling {
-            candidates.insert(tool.into());
+            push_candidate(&mut candidates, tool.into());
         }
 
         candidates
     }
 
-    fn add_target_prefixed(candidates: &mut BTreeSet<OsString>, target: &str, tool: &str) {
+    fn add_target_prefixed(candidates: &mut Vec<OsString>, target: &str, tool: &str) {
         let target_prefix = target.replace("-unknown-", "-");
-        candidates.insert(format!("{target_prefix}-{tool}").into());
+        push_candidate(candidates, format!("{target_prefix}-{tool}").into());
         if target_prefix != target {
-            candidates.insert(format!("{target}-{tool}").into());
+            push_candidate(candidates, format!("{target}-{tool}").into());
+        }
+    }
+
+    fn push_candidate(candidates: &mut Vec<OsString>, candidate: OsString) {
+        if !candidates.contains(&candidate) {
+            candidates.push(candidate);
         }
     }
 }
