@@ -130,6 +130,12 @@ mod tpm {
             .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO", &lib_dir)
             .define("user_TpmConfiguration_Dir", &tpm_config_dir);
 
+        // The upstream project enables CXX, but Tpm_CoreLib contains only C.
+        // Windows already has cl.exe for both languages; elsewhere, avoid
+        // requiring a separate C++ compiler.
+        #[cfg(not(windows))]
+        cmake_config.define("CMAKE_CXX_COMPILER", "true");
+
         if util::is_windows_msvc()? {
             // Fix CRT mismatch warnings
             cmake_config.define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreadedDLL");
@@ -339,10 +345,8 @@ mod symcrypt {
 /// Prefixing the TPM's symbols so a binary can link this crate alongside
 /// another copy of the reference code.
 mod symbols {
-    use crate::util;
     use std::collections::BTreeSet;
     use std::ffi::OsStr;
-    use std::ffi::OsString;
     use std::fmt::Write as _;
     use std::path::PathBuf;
     use std::process::Command;
@@ -357,8 +361,8 @@ mod symbols {
         source_archives: &[PathBuf],
     ) -> Result<(), Box<dyn std::error::Error>> {
         let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
-        let objcopy = util::env("TCG_TPM_OBJCOPY").unwrap_or_else(|| default_tool("objcopy"));
-        let nm = util::env("TCG_TPM_NM").unwrap_or_else(|| default_tool("nm"));
+        let objcopy = crate::tool_discovery::find_tool("objcopy")?;
+        let nm = crate::tool_discovery::find_tool("nm")?;
         println!("cargo:rustc-link-search=native={}", out_dir.display());
 
         let renames = renames(&nm, source_archives)?;
@@ -447,13 +451,84 @@ mod symbols {
             .map(str::to_owned)
             .collect())
     }
+}
 
-    fn default_tool(tool: &str) -> OsString {
-        let target = std::env::var("TARGET").unwrap();
-        if target.ends_with("-msvc") || target.contains("-apple-") {
-            OsString::from(format!("llvm-{tool}"))
-        } else {
-            OsString::from(tool)
+mod tool_discovery {
+    use std::ffi::OsString;
+    use std::process::Command;
+    use std::process::Stdio;
+
+    pub fn find_tool(tool: &str) -> Result<OsString, Box<dyn std::error::Error>> {
+        let host = std::env::var("HOST")?;
+        let target = std::env::var("TARGET")?;
+        let candidates = candidates(&host, &target, tool);
+
+        for candidate in &candidates {
+            if Command::new(candidate)
+                .arg("--version")
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .is_ok_and(|status| status.success())
+            {
+                return Ok(candidate.clone());
+            }
+        }
+
+        let candidates = candidates
+            .iter()
+            .map(|candidate| candidate.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join(", ");
+        Err(format!("could not find {tool}; tried {candidates}").into())
+    }
+
+    fn candidates(host: &str, target: &str, tool: &str) -> Vec<OsString> {
+        let cross_compiling = host != target;
+        let host_arch = host.split('-').next().unwrap_or(host);
+        let target_arch = target.split('-').next().unwrap_or(target);
+        let same_architecture = host_arch == target_arch;
+        let mut candidates = Vec::new();
+
+        if cross_compiling {
+            add_target_prefixed(&mut candidates, target, tool);
+
+            // GNU binutils operate on ELF independently of the target C runtime.
+            // Linux distributions generally package them with a GNU prefix even
+            // when the Rust target uses musl.
+            if target.contains("-linux-") {
+                push_candidate(
+                    &mut candidates,
+                    format!("{}-linux-gnu-{tool}", target_arch).into(),
+                );
+            }
+
+            if same_architecture {
+                add_target_prefixed(&mut candidates, host, tool);
+            }
+        }
+
+        if cross_compiling || target.ends_with("-msvc") || target.contains("-apple-") {
+            push_candidate(&mut candidates, format!("llvm-{tool}").into());
+        }
+        if !cross_compiling {
+            push_candidate(&mut candidates, tool.into());
+        }
+
+        candidates
+    }
+
+    fn add_target_prefixed(candidates: &mut Vec<OsString>, target: &str, tool: &str) {
+        let target_prefix = target.replace("-unknown-", "-");
+        push_candidate(candidates, format!("{target_prefix}-{tool}").into());
+        if target_prefix != target {
+            push_candidate(candidates, format!("{target}-{tool}").into());
+        }
+    }
+
+    fn push_candidate(candidates: &mut Vec<OsString>, candidate: OsString) {
+        if !candidates.contains(&candidate) {
+            candidates.push(candidate);
         }
     }
 }
