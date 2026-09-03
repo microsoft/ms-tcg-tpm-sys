@@ -161,15 +161,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: ./scripts/fetch-symcrypt.sh
 
-      - name: Configure build tools
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Get-Command perl.exe -ErrorAction Stop
-          Get-Command nasm.exe -ErrorAction Stop
-          Get-Command cl.exe -ErrorAction Stop
-          Get-Command nmake.exe -ErrorAction Stop
-
       - name: cargo fmt --check
         id: rustfmt
         continue-on-error: true

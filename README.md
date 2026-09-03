@@ -32,10 +32,9 @@ should be able to build it without issue.
 
 The build script uses `nm` and `objcopy` to prefix every symbol in the TPM
 libraries, so that a binary can link this crate alongside another copy of the
-TPM reference code. Native builds find `nm` and `objcopy` on `PATH`; MSVC and
-Apple targets prefer their `llvm-` prefixed variants. When cross-compiling, the
-build script looks for target-prefixed tools (for example,
-`aarch64-linux-gnu-objcopy`) and then their `llvm-` prefixed variants.
+TPM reference code. Native builds find the tools on `PATH`; MSVC and Apple
+targets prefer their `llvm-` prefixed variants. Cross builds try target-prefixed
+tools, GNU binutils for Linux targets, and then their `llvm-` prefixed variants.
 
 When `TCG_TPM_LIB_DIR` is set, the build script will instead namespace and link
 the following pre-built static libraries from the specified directory:

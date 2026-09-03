@@ -130,6 +130,12 @@ mod tpm {
             .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO", &lib_dir)
             .define("user_TpmConfiguration_Dir", &tpm_config_dir);
 
+        // The upstream project enables CXX, but Tpm_CoreLib contains only C.
+        // Windows already has cl.exe for both languages; elsewhere, avoid
+        // requiring a separate C++ compiler.
+        #[cfg(not(windows))]
+        cmake_config.define("CMAKE_CXX_COMPILER", "true");
+
         if util::is_windows_msvc()? {
             // Fix CRT mismatch warnings
             cmake_config.define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreadedDLL");
@@ -341,11 +347,9 @@ mod symcrypt {
 mod symbols {
     use std::collections::BTreeSet;
     use std::ffi::OsStr;
-    use std::ffi::OsString;
     use std::fmt::Write as _;
     use std::path::PathBuf;
     use std::process::Command;
-    use std::process::Stdio;
 
     const SYMBOL_PREFIX: &str = "ms_tcg_tpm_185_";
     /// Naming convention for the platform callbacks the TPM library expects.
@@ -357,8 +361,8 @@ mod symbols {
         source_archives: &[PathBuf],
     ) -> Result<(), Box<dyn std::error::Error>> {
         let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
-        let objcopy = find_tool("objcopy")?;
-        let nm = find_tool("nm")?;
+        let objcopy = crate::tool_discovery::find_tool("objcopy")?;
+        let nm = crate::tool_discovery::find_tool("nm")?;
         println!("cargo:rustc-link-search=native={}", out_dir.display());
 
         let renames = renames(&nm, source_archives)?;
@@ -447,27 +451,18 @@ mod symbols {
             .map(str::to_owned)
             .collect())
     }
+}
 
-    fn find_tool(tool: &str) -> Result<OsString, Box<dyn std::error::Error>> {
+mod tool_discovery {
+    use std::collections::BTreeSet;
+    use std::ffi::OsString;
+    use std::process::Command;
+    use std::process::Stdio;
+
+    pub fn find_tool(tool: &str) -> Result<OsString, Box<dyn std::error::Error>> {
         let host = std::env::var("HOST")?;
         let target = std::env::var("TARGET")?;
-        let cross_compiling = host != target;
-        let same_architecture = host.split('-').next() == target.split('-').next();
-        let mut candidates = Vec::new();
-
-        if cross_compiling {
-            add_prefixed_candidates(&mut candidates, &target, tool);
-            if same_architecture {
-                add_prefixed_candidates(&mut candidates, &host, tool);
-            }
-        }
-
-        if cross_compiling || target.ends_with("-msvc") || target.contains("-apple-") {
-            candidates.push(OsString::from(format!("llvm-{tool}")));
-        }
-        if !cross_compiling {
-            candidates.push(OsString::from(tool));
-        }
+        let candidates = candidates(&host, &target, tool);
 
         for candidate in &candidates {
             if Command::new(candidate)
@@ -489,11 +484,43 @@ mod symbols {
         Err(format!("could not find {tool}; tried {candidates}").into())
     }
 
-    fn add_prefixed_candidates(candidates: &mut Vec<OsString>, target: &str, tool: &str) {
+    fn candidates(host: &str, target: &str, tool: &str) -> BTreeSet<OsString> {
+        let cross_compiling = host != target;
+        let host_arch = host.split('-').next().unwrap_or(host);
+        let target_arch = target.split('-').next().unwrap_or(target);
+        let same_architecture = host_arch == target_arch;
+        let mut candidates = BTreeSet::new();
+
+        if cross_compiling {
+            add_target_prefixed(&mut candidates, target, tool);
+
+            // GNU binutils operate on ELF independently of the target C runtime.
+            // Linux distributions generally package them with a GNU prefix even
+            // when the Rust target uses musl.
+            if target.contains("-linux-") {
+                candidates.insert(format!("{}-linux-gnu-{tool}", target_arch).into());
+            }
+
+            if same_architecture {
+                add_target_prefixed(&mut candidates, host, tool);
+            }
+        }
+
+        if cross_compiling || target.ends_with("-msvc") || target.contains("-apple-") {
+            candidates.insert(format!("llvm-{tool}").into());
+        }
+        if !cross_compiling {
+            candidates.insert(tool.into());
+        }
+
+        candidates
+    }
+
+    fn add_target_prefixed(candidates: &mut BTreeSet<OsString>, target: &str, tool: &str) {
         let target_prefix = target.replace("-unknown-", "-");
-        candidates.push(OsString::from(format!("{target_prefix}-{tool}")));
+        candidates.insert(format!("{target_prefix}-{tool}").into());
         if target_prefix != target {
-            candidates.push(OsString::from(format!("{target}-{tool}")));
+            candidates.insert(format!("{target}-{tool}").into());
         }
     }
 }
