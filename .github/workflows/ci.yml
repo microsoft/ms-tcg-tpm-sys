@@ -18,7 +18,7 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
   RUSTDOCFLAGS: -D warnings
-  AZURE_TPM_COMMIT: f53b8997454ddf6a2e4586602852be81f3dbff33
+  AZURE_TPM_COMMIT: a46e670b256d5ad258ee450a1845255fd255de07
   AZURE_TPM_URL: https://microsoft@dev.azure.com/microsoft/TPM/_git/TPM-Internal
 
 jobs:
