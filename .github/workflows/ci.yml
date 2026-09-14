@@ -25,6 +25,7 @@ jobs:
   rust:
     name: rust (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
+    environment: ${{ matrix.tpm_source == 'azure' && 'pr-azure' || null }}
     strategy:
       fail-fast: false
       matrix:
