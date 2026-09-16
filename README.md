@@ -19,7 +19,7 @@ The following features are enabled by default:
 
 The following features are disabled by default:
 
-- `symcrypt` - Use SymCrypt for every crypto role (eventually). SymCrypt must be externally
+- `symcrypt` - Use SymCrypt for every crypto role. SymCrypt must be externally
   provided.
 - `vendored` - Compile OpenSSL from source (corresponds to`openssl-sys/vendored`).
 
@@ -64,7 +64,7 @@ is needed:
 
 ```sh
 ./scripts/fetch-symcrypt.sh
-cargo build --no-default-features --features symcrypt,vendored
+cargo build --no-default-features --features symcrypt
 ```
 
 The upstream TPM source is vendored as a git submodule under `TPM/`. After
@@ -139,15 +139,13 @@ out by opening a GitHub Issue.
 
 ### Supported crypto backends
 
-While the underlying `TrustedComputingGroup/TPM` library does support multiple
-different crypto backends, at this time, the only fully supported crypto backend
-is OpenSSL 3.5 or newer.
+The crate supports OpenSSL 3.5 or newer and SymCrypt as crypto backends.
 
-This particular backend was selected in order to seamlessly integrate
+OpenSSL was selected in order to seamlessly integrate
 `ms-tcg-tpm-sys` into a larger codebase that was already using OpenSSL 3.x.
 
-A SymCrypt backend is in progress behind the `symcrypt` feature. It currently
-covers the symmetric and RSA roles only, leaving the rest on OpenSSL.
+The `symcrypt` feature uses SymCrypt for crypto operations. This feature does
+not require OpenSSL.
 
 In the future, this crate may be updated to support linking against more alternative
 crypto backends, though at this time, there is no concrete roadmap as to when

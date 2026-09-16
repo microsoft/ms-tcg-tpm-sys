@@ -51,6 +51,7 @@ mod backend {
         pub(crate) fn from_env() -> Result<Self, Box<dyn std::error::Error>> {
             let openssl = std::env::var_os("CARGO_FEATURE_OPENSSL").is_some();
             let symcrypt = std::env::var_os("CARGO_FEATURE_SYMCRYPT").is_some();
+            let vendored = std::env::var_os("CARGO_FEATURE_VENDORED").is_some();
             match (openssl, symcrypt) {
                 (true, true) => {
                     Err("the `openssl` and `symcrypt` features are mutually exclusive".into())
@@ -59,6 +60,9 @@ mod backend {
                     "exactly one of the `openssl` or `symcrypt` features must be enabled".into(),
                 ),
                 (true, false) => Ok(Self::OpenSsl),
+                (false, true) if vendored => {
+                    Err("the `vendored` feature only applies to `openssl`".into())
+                }
                 (false, true) => Ok(Self::SymCrypt),
             }
         }
@@ -146,9 +150,6 @@ mod tpm {
                 crate::openssl::configure(&mut cmake_config, &tpm_src_dir, &out_dir)?;
             }
             Backend::SymCrypt => {
-                // SymCrypt doesn't cover every role yet, so it layers over the OpenSSL
-                // selections instead of replacing them.
-                crate::openssl::configure(&mut cmake_config, &tpm_src_dir, &out_dir)?;
                 crate::symcrypt::configure(&mut cmake_config)?;
             }
         }
@@ -314,12 +315,12 @@ mod symcrypt {
             .define("cryptoLib_Hash", "SymCrypt")
             .define("cryptoLib_Random", "RandRef")
             .define("cryptoLib_Kdf", "KdfRef")
-            .define("cryptoLib_Math", "TpmBigNum")
+            .define("cryptoLib_Math", "SymCrypt")
             .define("cryptoLib_BnMath", "SymCrypt")
             .define("cryptoLib_RSA", "SymCrypt")
-            .define("cryptoLib_ECC", "EccRef")
-            .define("cryptoLib_MLKEM", "Ossl")
-            .define("cryptoLib_MLDSA", "Ossl");
+            .define("cryptoLib_ECC", "SymCrypt")
+            .define("cryptoLib_MLKEM", "SymCrypt")
+            .define("cryptoLib_MLDSA", "SymCrypt");
 
         Ok(())
     }
@@ -331,12 +332,10 @@ mod symcrypt {
         "Tpm_CryptoLib_Hash_SymCrypt",
         "Tpm_CryptoLib_Random_RandRef",
         "Tpm_CryptoLib_Kdf_KdfRef",
-        "Tpm_CryptoLib_Math_TpmBigNum",
-        "Tpm_CryptoLib_BnMath_SymCrypt",
         "Tpm_CryptoLib_RSA_SymCrypt",
-        "Tpm_CryptoLib_ECC_EccRef",
-        "Tpm_CryptoLib_MLKEM_Ossl",
-        "Tpm_CryptoLib_MLDSA_Ossl",
+        "Tpm_CryptoLib_ECC_SymCrypt",
+        "Tpm_CryptoLib_MLKEM_SymCrypt",
+        "Tpm_CryptoLib_MLDSA_SymCrypt",
         "Tpm_CryptoLib_SymCrypt_Common",
         "Tpm_CryptoLib_Common",
     ];
