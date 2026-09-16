@@ -18,7 +18,7 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
   RUSTDOCFLAGS: -D warnings
-  AZURE_TPM_COMMIT: a46e670b256d5ad258ee450a1845255fd255de07
+  AZURE_TPM_COMMIT: 2ccb70025bd2a7b0322f0bfbdc82d002dc2b7a67
   AZURE_TPM_URL: https://microsoft@dev.azure.com/microsoft/TPM/_git/TPM-Internal
 
 jobs:
@@ -64,12 +64,12 @@ jobs:
           # The prebuilt SymCrypt is a musl build
           - name: symcrypt (azure, linux)
             runner: ubuntu-latest
-            features: symcrypt,vendored
+            features: symcrypt
             target: x86_64-unknown-linux-musl
             tpm_source: azure
           - name: symcrypt (azure, linux arm64)
             runner: ubuntu-24.04-arm
-            features: symcrypt,vendored
+            features: symcrypt
             target: aarch64-unknown-linux-musl
             tpm_source: azure
     env:
