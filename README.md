@@ -47,20 +47,19 @@ documentation for instructions on how to build + link against OpenSSL:
 
 ### SymCrypt
 
-The `symcrypt` feature does not build SymCrypt. When compiling the TPM from
-source, point `SYMCRYPT_INCLUDE_DIR` and `SYMCRYPT_LIB_DIR` at an existing
-build; both accept the target-prefixed forms the other env-vars do. The build
-script also adds `SYMCRYPT_LIB_DIR` to the link search path in that case.
+The `symcrypt` feature does not build SymCrypt. Point `SYMCRYPT_LIB_PATH` at an
+existing build containing `libsymcrypt.a` or `symcrypt.lib`. When compiling the
+TPM from source, also point `SYMCRYPT_INCLUDE_PATH` at its headers. Both variables
+accept the target-prefixed forms the other env-vars do.
 
-When linking pre-built TPM libraries via `TCG_TPM_LIB_DIR`, neither variable is
-consulted, and the build script emits no SymCrypt link flags at all. The final
-binary is responsible for supplying a SymCrypt that matches the one the
-pre-built libraries were compiled against.
+When linking pre-built TPM libraries via `TCG_TPM_LIB_DIR`, the build script
+still uses `SYMCRYPT_LIB_PATH` because the Rust bindings link SymCrypt directly;
+`SYMCRYPT_INCLUDE_PATH` is not required in that mode. SymCrypt must match the
+target and the version used to compile the pre-built TPM libraries.
 
 `scripts/fetch-symcrypt.sh` stages a Linux build from the latest
 [`microsoft/openvmm-deps`](https://github.com/microsoft/openvmm-deps) release and
-sets both variables in the workspace's `.cargo/config.toml`, so no further setup
-is needed:
+sets both variables in the workspace's `.cargo/config.toml`:
 
 ```sh
 ./scripts/fetch-symcrypt.sh

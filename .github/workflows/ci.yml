@@ -18,7 +18,7 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
   RUSTDOCFLAGS: -D warnings
-  AZURE_TPM_COMMIT: 2ccb70025bd2a7b0322f0bfbdc82d002dc2b7a67
+  AZURE_TPM_COMMIT: 66728b45332a534e83def0ba9a26d945bcd7bcd0
   AZURE_TPM_URL: https://microsoft@dev.azure.com/microsoft/TPM/_git/TPM-Internal
 
 jobs:
@@ -154,7 +154,7 @@ jobs:
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
 
-      # Exports SYMCRYPT_INCLUDE_DIR and SYMCRYPT_LIB_DIR via $GITHUB_ENV.
+      # Exports SYMCRYPT_INCLUDE_PATH and SYMCRYPT_LIB_PATH via $GITHUB_ENV.
       - name: Fetch SymCrypt
         if: contains(matrix.features, 'symcrypt')
         env:

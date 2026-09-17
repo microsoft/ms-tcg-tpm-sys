@@ -7,7 +7,7 @@
 # The release ships a cross-compilation sysroot that contains the SymCrypt
 # headers plus `libsymcrypt.a`, a static build of SymCrypt's
 # `symcrypt_generic_posix` module. This script pulls just those files out and
-# lays them out as the `SYMCRYPT_INCLUDE_DIR` / `SYMCRYPT_LIB_DIR` pair that
+# lays them out as the `SYMCRYPT_INCLUDE_PATH` / `SYMCRYPT_LIB_PATH` pair that
 # `build.rs` expects.
 
 set -euo pipefail
@@ -26,8 +26,8 @@ Usage: fetch-symcrypt.sh [--dest DIR] [--tag TAG] [--arch ARCH]
   --tag TAG    openvmm-deps release tag. Default: the latest release.
   --arch ARCH  x86_64 or aarch64. Default: derived from `uname -m`.
 
-Writes DIR/include and DIR/lib, then points SYMCRYPT_INCLUDE_DIR and
-SYMCRYPT_LIB_DIR at them via the workspace's .cargo/config.toml, so plain
+Writes DIR/include and DIR/lib, then points SYMCRYPT_INCLUDE_PATH and
+SYMCRYPT_LIB_PATH at them via the workspace's .cargo/config.toml, so plain
 `cargo build --no-default-features --features symcrypt` picks them up. In GitHub Actions the
 assignments are also appended to $GITHUB_ENV.
 EOF
@@ -130,15 +130,15 @@ mkdir -p "$(dirname "$CARGO_CONFIG")"
 cat > "$CARGO_CONFIG" <<EOF
 ${MARKER}
 [env]
-SYMCRYPT_INCLUDE_DIR = "$(toml_escape "$DEST/include")"
-SYMCRYPT_LIB_DIR = "$(toml_escape "$DEST/lib")"
+SYMCRYPT_INCLUDE_PATH = "$(toml_escape "$DEST/include")"
+SYMCRYPT_LIB_PATH = "$(toml_escape "$DEST/lib")"
 EOF
 
-echo "set SYMCRYPT_INCLUDE_DIR and SYMCRYPT_LIB_DIR in ${CARGO_CONFIG}" >&2
+echo "set SYMCRYPT_INCLUDE_PATH and SYMCRYPT_LIB_PATH in ${CARGO_CONFIG}" >&2
 
 if [[ -n "${GITHUB_ENV:-}" ]]; then
     {
-        printf 'SYMCRYPT_INCLUDE_DIR=%s\n' "$DEST/include"
-        printf 'SYMCRYPT_LIB_DIR=%s\n' "$DEST/lib"
+        printf 'SYMCRYPT_INCLUDE_PATH=%s\n' "$DEST/include"
+        printf 'SYMCRYPT_LIB_PATH=%s\n' "$DEST/lib"
     } >> "$GITHUB_ENV"
 fi

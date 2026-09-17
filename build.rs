@@ -15,6 +15,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(var) => {
             let lib_dir = PathBuf::from(var);
             println!("cargo:rerun-if-changed={}", lib_dir.display());
+            if matches!(backend, Backend::SymCrypt) {
+                symcrypt::configure_link()?;
+            }
             let libraries = backend.tpm_archives(&lib_dir)?;
             let source_archives = tpm::source_archives(&lib_dir, libraries)?;
             for archive in &source_archives {
@@ -287,29 +290,44 @@ mod symcrypt {
     use crate::util;
     use std::path::PathBuf;
 
+    fn required_dir(name: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
+        util::env_dir(name)?.ok_or_else(|| {
+            format!("building the TPM against SymCrypt requires {name} to be set").into()
+        })
+    }
+
+    /// Tell Cargo where to find the external SymCrypt archive.
+    pub(crate) fn configure_link() -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
+        let lib_dir = required_dir("SYMCRYPT_LIB_PATH")?;
+        let archive = lib_dir.join(util::archive_file_name("symcrypt")?);
+        if !archive.is_file() {
+            return Err(format!(
+                "SYMCRYPT_LIB_PATH ({}) does not contain {}",
+                lib_dir.display(),
+                archive.file_name().unwrap().to_string_lossy()
+            )
+            .into());
+        }
+
+        println!("cargo:rerun-if-changed={}", archive.display());
+        println!("cargo:rustc-link-search=native={}", lib_dir.display());
+
+        Ok((lib_dir, archive))
+    }
+
     /// Point the TPM build at the prebuilt SymCrypt.
     pub(crate) fn configure(
         cmake_config: &mut cmake::Config,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let dir = |name: &str| -> Result<PathBuf, Box<dyn std::error::Error>> {
-            util::env_dir(name)?.ok_or_else(|| {
-                format!("building the TPM against SymCrypt requires {name} to be set").into()
-            })
-        };
-        let include_dir = dir("SYMCRYPT_INCLUDE_DIR")?;
-        let lib_dir = dir("SYMCRYPT_LIB_DIR")?;
-
-        // Tell Cargo about the external SymCrypt.
-        let archive = lib_dir.join(util::archive_file_name("symcrypt")?);
-        println!("cargo:rerun-if-changed={}", archive.display());
-        println!("cargo:rustc-link-search=native={}", lib_dir.display());
+        let include_dir = required_dir("SYMCRYPT_INCLUDE_PATH")?;
+        let (lib_dir, archive) = configure_link()?;
 
         // The TPM's build expects SymCrypt's split `symcrypt_common` /
         // `symcrypt_generic` archives, so pre-seed the cache entries its
         // `find_library` calls populate to accept a single merged archive.
         cmake_config
-            .define("SYMCRYPT_INCLUDE_DIR", &include_dir)
-            .define("SYMCRYPT_LIB_DIR", &lib_dir)
+            .define("SYMCRYPT_INCLUDE_PATH", &include_dir)
+            .define("SYMCRYPT_LIB_PATH", &lib_dir)
             .define("SYMCRYPT_COMMON_LIB", &archive)
             .define("cryptoLib_Symmetric", "SymCrypt")
             .define("cryptoLib_Hash", "SymCrypt")
