@@ -47,14 +47,14 @@ documentation for instructions on how to build + link against OpenSSL:
 
 ### SymCrypt
 
-The `symcrypt` feature does not build SymCrypt. Point `SYMCRYPT_LIB_PATH` at an
+The `symcrypt` feature does not build SymCrypt. Point `SYMCRYPT_LIB_DIR` at an
 existing build containing `libsymcrypt.a` or `symcrypt.lib`. When compiling the
-TPM from source, also point `SYMCRYPT_INCLUDE_PATH` at its headers. Both variables
+TPM from source, also point `SYMCRYPT_INCLUDE_DIR` at its headers. Both variables
 accept the target-prefixed forms the other env-vars do.
 
 When linking pre-built TPM libraries via `TCG_TPM_LIB_DIR`, the build script
-still uses `SYMCRYPT_LIB_PATH` because the Rust bindings link SymCrypt directly;
-`SYMCRYPT_INCLUDE_PATH` is not required in that mode. SymCrypt must match the
+still uses `SYMCRYPT_LIB_DIR` because the Rust bindings link SymCrypt directly;
+`SYMCRYPT_INCLUDE_DIR` is not required in that mode. SymCrypt must match the
 target and the version used to compile the pre-built TPM libraries.
 
 `scripts/fetch-symcrypt.sh` stages a Linux build from the latest

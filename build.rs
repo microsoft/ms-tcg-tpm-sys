@@ -298,11 +298,11 @@ mod symcrypt {
 
     /// Tell Cargo where to find the external SymCrypt archive.
     pub(crate) fn configure_link() -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
-        let lib_dir = required_dir("SYMCRYPT_LIB_PATH")?;
+        let lib_dir = required_dir("SYMCRYPT_LIB_DIR")?;
         let archive = lib_dir.join(util::archive_file_name("symcrypt")?);
         if !archive.is_file() {
             return Err(format!(
-                "SYMCRYPT_LIB_PATH ({}) does not contain {}",
+                "SYMCRYPT_LIB_DIR ({}) does not contain {}",
                 lib_dir.display(),
                 archive.file_name().unwrap().to_string_lossy()
             )
@@ -319,15 +319,15 @@ mod symcrypt {
     pub(crate) fn configure(
         cmake_config: &mut cmake::Config,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let include_dir = required_dir("SYMCRYPT_INCLUDE_PATH")?;
+        let include_dir = required_dir("SYMCRYPT_INCLUDE_DIR")?;
         let (lib_dir, archive) = configure_link()?;
 
         // The TPM's build expects SymCrypt's split `symcrypt_common` /
         // `symcrypt_generic` archives, so pre-seed the cache entries its
         // `find_library` calls populate to accept a single merged archive.
         cmake_config
-            .define("SYMCRYPT_INCLUDE_PATH", &include_dir)
-            .define("SYMCRYPT_LIB_PATH", &lib_dir)
+            .define("SYMCRYPT_INCLUDE_DIR", &include_dir)
+            .define("SYMCRYPT_LIB_DIR", &lib_dir)
             .define("SYMCRYPT_COMMON_LIB", &archive)
             .define("cryptoLib_Symmetric", "SymCrypt")
             .define("cryptoLib_Hash", "SymCrypt")
