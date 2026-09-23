@@ -123,7 +123,7 @@ mod tpm {
             // Pin the configuration rather than letting `cmake` infer one from
             // the Cargo profile, so the archive output directory below always
             // matches.
-            .profile("RelWithDebInfo")
+            .profile("MinSizeRel")
             .cflag("-DNDEBUG")
             // We only want the core library
             .define("Tpm_BuildOption_LibOnly", "1")
@@ -134,7 +134,7 @@ mod tpm {
             .build_target("Tpm_CoreLib")
             .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY", &lib_dir)
             // Multi-config generators otherwise append the config name.
-            .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO", &lib_dir)
+            .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_MINSIZEREL", &lib_dir)
             .define("user_TpmConfiguration_Dir", &tpm_config_dir);
 
         // The upstream project enables CXX, but Tpm_CoreLib contains only C.
@@ -144,8 +144,12 @@ mod tpm {
         cmake_config.define("CMAKE_CXX_COMPILER", "true");
 
         if util::is_windows_msvc()? {
-            // Fix CRT mismatch warnings
-            cmake_config.define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreadedDLL");
+            cmake_config
+                .cflag("/Zi")
+                // Fix CRT mismatch warnings
+                .define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreadedDLL");
+        } else {
+            cmake_config.cflag("-g");
         }
 
         match backend {
