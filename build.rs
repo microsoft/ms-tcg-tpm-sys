@@ -145,10 +145,14 @@ mod tpm {
 
         if util::is_windows_msvc()? {
             cmake_config
+                // Generate debug info
                 .cflag("/Zi")
+                // Ignore LTCG inlining warnings
+                .cflag("/wd4711")
                 // Fix CRT mismatch warnings
                 .define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreadedDLL");
         } else {
+            // Generate debug info
             cmake_config.cflag("-g");
         }
 
