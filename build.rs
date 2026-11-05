@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 symcrypt::configure_link()?;
             }
             let libraries = backend.tpm_archives(&lib_dir)?;
-            let source_archives = tpm::source_archives(&lib_dir, libraries)?;
+            let source_archives = tpm::source_archives(&lib_dir, &libraries)?;
             for archive in &source_archives {
                 println!("cargo:rerun-if-changed={}", archive.display());
             }
@@ -30,12 +30,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => {
             let lib_dir = tpm::compile(&backend)?;
             let libraries = backend.tpm_archives(&lib_dir)?;
-            let source_archives = tpm::source_archives(&lib_dir, libraries)?;
+            let source_archives = tpm::source_archives(&lib_dir, &libraries)?;
             (libraries, source_archives)
         }
     };
 
-    symbols::namespace_libraries(libraries, &source_archives)?;
+    symbols::namespace_libraries(&libraries, &source_archives)?;
 
     Ok(())
 }
@@ -74,10 +74,10 @@ mod backend {
         pub(crate) fn tpm_archives(
             &self,
             lib_dir: &std::path::Path,
-        ) -> Result<&'static [&'static str], Box<dyn std::error::Error>> {
+        ) -> Result<Vec<&'static str>, Box<dyn std::error::Error>> {
             match self {
                 Self::OpenSsl => super::openssl::tpm_archives(lib_dir),
-                Self::SymCrypt => Ok(super::symcrypt::TPM_ARCHIVES),
+                Self::SymCrypt => super::symcrypt::tpm_archives(),
             }
         }
     }
@@ -140,8 +140,9 @@ mod tpm {
         // The upstream project enables CXX, but Tpm_CoreLib contains only C.
         // Windows already has cl.exe for both languages; elsewhere, avoid
         // requiring a separate C++ compiler.
-        #[cfg(not(windows))]
-        cmake_config.define("CMAKE_CXX_COMPILER", "true");
+        if !util::is_windows_msvc()? {
+            cmake_config.define("CMAKE_CXX_COMPILER", "true");
+        }
 
         if util::is_windows_msvc()? {
             cmake_config
@@ -149,7 +150,6 @@ mod tpm {
                 .cflag("/Zi")
                 // Ignore LTCG inlining warnings
                 .cflag("/wd4711")
-                // Fix CRT mismatch warnings
                 .define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreadedDLL");
         } else {
             // Generate debug info
@@ -166,6 +166,12 @@ mod tpm {
         }
 
         cmake_config.build();
+
+        if matches!(backend, Backend::SymCrypt) && util::is_windows_msvc()? {
+            cmake_config
+                .build_target("Tpm_SymCrypt_Environment")
+                .build();
+        }
 
         Ok(lib_dir)
     }
@@ -253,13 +259,13 @@ mod openssl {
 
     pub(crate) fn tpm_archives(
         lib_dir: &Path,
-    ) -> Result<&'static [&'static str], Box<dyn std::error::Error>> {
+    ) -> Result<Vec<&'static str>, Box<dyn std::error::Error>> {
         let v184_archive = lib_dir.join(util::archive_file_name("Tpm_CryptoLib_TpmBigNum")?);
         let azure_archive = lib_dir.join(util::archive_file_name("Tpm_CryptoLib_Math_TpmBigNum")?);
 
         match (v184_archive.is_file(), azure_archive.is_file()) {
-            (true, false) => Ok(TPM_184_ARCHIVES),
-            (false, true) => Ok(AZURE_TPM_ARCHIVES),
+            (true, false) => Ok(TPM_184_ARCHIVES.to_vec()),
+            (false, true) => Ok(AZURE_TPM_ARCHIVES.to_vec()),
             _ => Err(format!(
                 "could not identify TPM archive layout in {}",
                 lib_dir.display()
@@ -304,22 +310,39 @@ mod symcrypt {
         })
     }
 
-    /// Tell Cargo where to find the external SymCrypt archive.
+    /// Tell Cargo where to find SymCrypt's static libraries.
     pub(crate) fn configure_link() -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
         let lib_dir = required_dir("SYMCRYPT_LIB_DIR")?;
-        let archive = lib_dir.join(util::archive_file_name("symcrypt")?);
-        if !archive.is_file() {
-            return Err(format!(
-                "SYMCRYPT_LIB_DIR ({}) does not contain {}",
-                lib_dir.display(),
-                archive.file_name().unwrap().to_string_lossy()
-            )
-            .into());
+        let windows = util::is_windows_msvc()?;
+        let libraries: &[&str] = if windows {
+            &[
+                "symcrypt_usermodewin8_1",
+                "symcrypt_common",
+                "symcrypt_mlkem",
+            ]
+        } else {
+            &["symcrypt"]
+        };
+        for library in libraries {
+            let archive = lib_dir.join(util::archive_file_name(library)?);
+            if !archive.is_file() {
+                return Err(format!(
+                    "SYMCRYPT_LIB_DIR ({}) does not contain {}",
+                    lib_dir.display(),
+                    archive.file_name().unwrap().to_string_lossy()
+                )
+                .into());
+            }
+            println!("cargo:rerun-if-changed={}", archive.display());
+            println!("cargo:rustc-link-lib=static={library}");
         }
-
-        println!("cargo:rerun-if-changed={}", archive.display());
         println!("cargo:rustc-link-search=native={}", lib_dir.display());
 
+        let archive = lib_dir.join(util::archive_file_name(if windows {
+            "symcrypt_common"
+        } else {
+            "symcrypt"
+        })?);
         Ok((lib_dir, archive))
     }
 
@@ -349,6 +372,14 @@ mod symcrypt {
             .define("cryptoLib_MLDSA", "SymCrypt");
 
         Ok(())
+    }
+
+    pub(crate) fn tpm_archives() -> Result<Vec<&'static str>, Box<dyn std::error::Error>> {
+        let mut libraries = TPM_ARCHIVES.to_vec();
+        if util::is_windows_msvc()? {
+            libraries.extend(["Tpm_SymCrypt_Environment", "Tpm_SymCrypt_Callbacks"]);
+        }
+        Ok(libraries)
     }
 
     /// The TPM archives the SymCrypt backend produces, in link order.
@@ -431,7 +462,12 @@ mod symbols {
         );
         // Anything that isn't a C identifier is linker metadata that is matched
         // by name, such as MSVC's `@feat.00` or its COMDAT constants.
-        symbols.retain(|symbol| is_c_identifier(symbol));
+        symbols.retain(|symbol| {
+            is_c_identifier(symbol)
+                // SymCrypt's external archives call the environment and
+                // callbacks supplied by the TPM, so preserve that ABI.
+                && !symbol.starts_with("SymCrypt")
+        });
 
         let mut file = String::new();
         for symbol in symbols {
@@ -528,7 +564,7 @@ mod tool_discovery {
                 );
             }
 
-            if same_architecture {
+            if same_architecture && !target.ends_with("-msvc") {
                 add_target_prefixed(&mut candidates, host, tool);
             }
         }

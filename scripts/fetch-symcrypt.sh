@@ -4,11 +4,8 @@
 #
 # Stage a prebuilt SymCrypt from the latest `microsoft/openvmm-deps` release.
 #
-# The release ships a cross-compilation sysroot that contains the SymCrypt
-# headers plus `libsymcrypt.a`, a static build of SymCrypt's
-# `symcrypt_generic_posix` module. This script pulls just those files out and
-# lays them out as the `SYMCRYPT_INCLUDE_DIR` / `SYMCRYPT_LIB_DIR` pair that
-# `build.rs` expects.
+# Linux releases contain a sysroot with headers and `libsymcrypt.a`.
+# Windows releases contain headers and three static libraries in `lib/static`.
 
 set -euo pipefail
 
@@ -17,14 +14,16 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="${REPO_ROOT}/.symcrypt"
 TAG=""
 ARCH=""
+PLATFORM=""
 
 usage() {
     cat <<'EOF'
-Usage: fetch-symcrypt.sh [--dest DIR] [--tag TAG] [--arch ARCH]
+Usage: fetch-symcrypt.sh [--dest DIR] [--tag TAG] [--arch ARCH] [--platform PLATFORM]
 
   --dest DIR   Where to stage SymCrypt. Default: <repo>/.symcrypt
   --tag TAG    openvmm-deps release tag. Default: the latest release.
   --arch ARCH  x86_64 or aarch64. Default: derived from `uname -m`.
+  --platform PLATFORM  linux or windows. Default: derived from `uname -s`.
 
 Writes DIR/include and DIR/lib, then points SYMCRYPT_INCLUDE_DIR and
 SYMCRYPT_LIB_DIR at them via the workspace's .cargo/config.toml, so plain
@@ -38,10 +37,24 @@ while [[ $# -gt 0 ]]; do
         --dest) DEST="$2"; shift 2 ;;
         --tag) TAG="$2"; shift 2 ;;
         --arch) ARCH="$2"; shift 2 ;;
+        --platform) PLATFORM="$2"; shift 2 ;;
         -h | --help) usage; exit 0 ;;
         *) echo "unknown argument: $1" >&2; usage >&2; exit 1 ;;
     esac
 done
+
+if [[ -z "$PLATFORM" ]]; then
+    case "$(uname -s)" in
+        Linux) PLATFORM="linux" ;;
+        MINGW* | MSYS* | CYGWIN*) PLATFORM="windows" ;;
+        *) echo "unsupported host platform: $(uname -s)" >&2; exit 1 ;;
+    esac
+fi
+
+case "$PLATFORM" in
+    linux | windows) ;;
+    *) echo "unsupported platform: $PLATFORM" >&2; exit 1 ;;
+esac
 
 if [[ -z "$ARCH" ]]; then
     case "$(uname -m)" in
@@ -75,7 +88,15 @@ if [[ -z "$TAG" ]]; then
     fi
 fi
 
-ASSET="openvmm-deps.${ARCH}.${TAG}.tar.gz"
+if [[ "$PLATFORM" == windows ]]; then
+    ASSET="symcrypt-windows.${ARCH}.${TAG}.tar.gz"
+    LIB_SUBDIR="lib/static"
+    LIBRARIES=(symcrypt_usermodewin8_1.lib symcrypt_common.lib symcrypt_mlkem.lib)
+else
+    ASSET="openvmm-deps.${ARCH}.${TAG}.tar.gz"
+    LIB_SUBDIR="lib"
+    LIBRARIES=(libsymcrypt.a)
+fi
 URL="https://github.com/${REPO}/releases/download/${TAG}/${ASSET}"
 
 echo "fetching SymCrypt from ${URL}" >&2
@@ -86,14 +107,24 @@ trap '[[ -e "$STAGING" ]] && rm -r "$STAGING"' EXIT
 # The release tarball nests the sysroot as `./sysroot.tar.gz`, so unwrap the
 # outer archive on the fly rather than spilling ~150MiB of unrelated artifacts
 # to disk.
-curl -fsSL "$URL" |
-    tar -xzO ./sysroot.tar.gz |
-    tar -xz -C "$STAGING" --wildcards './include/symcrypt*' './lib/libsymcrypt.a'
+if [[ "$PLATFORM" == windows ]]; then
+    curl -fsSL "$URL" | tar -xz -C "$STAGING" ./include ./lib/static
+else
+    curl -fsSL "$URL" |
+        tar -xzO ./sysroot.tar.gz |
+        tar -xz -C "$STAGING" --wildcards './include/symcrypt*' './lib/libsymcrypt.a'
+fi
 
-if [[ ! -f "$STAGING/lib/libsymcrypt.a" ]]; then
-    echo "${ASSET} did not contain lib/libsymcrypt.a" >&2
+if [[ ! -f "$STAGING/include/symcrypt.h" ]]; then
+    echo "${ASSET} did not contain include/symcrypt.h" >&2
     exit 1
 fi
+for library in "${LIBRARIES[@]}"; do
+    if [[ ! -f "$STAGING/$LIB_SUBDIR/$library" ]]; then
+        echo "${ASSET} did not contain $LIB_SUBDIR/$library" >&2
+        exit 1
+    fi
+done
 
 # Resolve `--dest` to an absolute path before deleting anything.
 DEST_NAME="$(basename "$DEST")"
@@ -109,8 +140,16 @@ DEST="$(cd "$(dirname "$DEST")" && pwd)/${DEST_NAME}"
 if [[ -e "$DEST" ]]; then
     rm -r "$DEST"
 fi
-mkdir -p "$DEST"
+mkdir "$DEST"
 mv "$STAGING/include" "$STAGING/lib" "$DEST/"
+
+INCLUDE_DIR="$DEST/include"
+LIB_DIR="$DEST/$LIB_SUBDIR"
+# Native Windows Cargo needs Windows paths, not Git Bash's /c/... paths.
+if [[ "$PLATFORM" == windows ]] && command -v cygpath >/dev/null 2>&1; then
+    INCLUDE_DIR="$(cygpath -m "$INCLUDE_DIR")"
+    LIB_DIR="$(cygpath -m "$LIB_DIR")"
+fi
 
 # Cargo applies `[env]` to build scripts, so this is what actually hands the
 # paths to `build.rs`. Entries do not override an already-set variable.
@@ -126,19 +165,21 @@ toml_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
 }
 
-mkdir -p "$(dirname "$CARGO_CONFIG")"
+if [[ ! -d "$(dirname "$CARGO_CONFIG")" ]]; then
+    mkdir "$(dirname "$CARGO_CONFIG")"
+fi
 cat > "$CARGO_CONFIG" <<EOF
 ${MARKER}
 [env]
-SYMCRYPT_INCLUDE_DIR = "$(toml_escape "$DEST/include")"
-SYMCRYPT_LIB_DIR = "$(toml_escape "$DEST/lib")"
+SYMCRYPT_INCLUDE_DIR = "$(toml_escape "$INCLUDE_DIR")"
+SYMCRYPT_LIB_DIR = "$(toml_escape "$LIB_DIR")"
 EOF
 
 echo "set SYMCRYPT_INCLUDE_DIR and SYMCRYPT_LIB_DIR in ${CARGO_CONFIG}" >&2
 
 if [[ -n "${GITHUB_ENV:-}" ]]; then
     {
-        printf 'SYMCRYPT_INCLUDE_DIR=%s\n' "$DEST/include"
-        printf 'SYMCRYPT_LIB_DIR=%s\n' "$DEST/lib"
+        printf 'SYMCRYPT_INCLUDE_DIR=%s\n' "$INCLUDE_DIR"
+        printf 'SYMCRYPT_LIB_DIR=%s\n' "$LIB_DIR"
     } >> "$GITHUB_ENV"
 fi

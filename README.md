@@ -48,14 +48,21 @@ documentation for instructions on how to build + link against OpenSSL:
 ### SymCrypt
 
 The `symcrypt` feature does not build SymCrypt. Point `SYMCRYPT_LIB_DIR` at an
-existing build containing `libsymcrypt.a` or `symcrypt.lib`. When compiling the
-TPM from source, also point `SYMCRYPT_INCLUDE_DIR` at its headers. Both variables
-accept the target-prefixed forms the other env-vars do.
+existing build containing `libsymcrypt.a` on Linux. Only static linking is
+supported. On Windows (MSVC), use the directory containing
+`symcrypt_usermodewin8_1.lib`, `symcrypt_common.lib`, and
+`symcrypt_mlkem.lib`, not the DLL import library `symcrypt.lib`. When compiling
+the TPM from source, also point `SYMCRYPT_INCLUDE_DIR` at its headers. Both
+variables accept the target-prefixed forms the other env-vars do.
 
 When linking pre-built TPM libraries via `TCG_TPM_LIB_DIR`, the build script
 still uses `SYMCRYPT_LIB_DIR` because the Rust bindings link SymCrypt directly;
 `SYMCRYPT_INCLUDE_DIR` is not required in that mode. SymCrypt must match the
 target and the version used to compile the pre-built TPM libraries.
+For Windows static linking, pre-built TPM libraries must also include
+`Tpm_SymCrypt_Environment.lib` and `Tpm_SymCrypt_Callbacks.lib`.
+
+#### Linux builds
 
 `scripts/fetch-symcrypt.sh` stages a Linux build from the latest
 [`microsoft/openvmm-deps`](https://github.com/microsoft/openvmm-deps) release and
@@ -72,6 +79,22 @@ cloning, make sure to initialize submodules:
 ```sh
 git submodule update --init --recursive
 ```
+
+#### Windows builds
+
+Run the fetch script from Git Bash to stage the Windows package and configure
+Cargo (use `--tag` to select a specific release):
+
+```sh
+./scripts/fetch-symcrypt.sh --platform windows --arch x86_64
+```
+
+With a matching package, run in a Visual Studio developer PowerShell:
+
+```powershell
+cargo build --target x86_64-pc-windows-msvc --no-default-features --features symcrypt
+```
+
 
 ## Trying it out
 
@@ -105,7 +128,7 @@ cargo run -p test-harness -- ./tpm.nvmem
   `src/plat/`.
 - `TPM/` - Git submodule pointing at upstream `TrustedComputingGroup/TPM`.
 - `scripts/fetch-symcrypt.sh` - Stages a prebuilt SymCrypt for the `symcrypt`
-  feature.
+  feature on Linux or Windows (Git Bash).
 - `test-harness/` - A small sample binary that initializes the TPM, sends a
   few commands, and persists state to an on-disk `.nvmem` blob.
 

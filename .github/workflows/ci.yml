@@ -18,61 +18,53 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
   RUSTDOCFLAGS: -D warnings
+  OPENVMM_DEPS_VERSION: 0.3.0-183
   AZURE_TPM_COMMIT: 13cbd888d14bd3fbaa667c73be4dc0427552a33a
   AZURE_TPM_URL: https://microsoft@dev.azure.com/microsoft/TPM/_git/TPM-Internal
 
 jobs:
   rust:
-    name: rust (${{ matrix.name }})
+    name: ${{ matrix.backend }} ${{ matrix.tpm_source }}, ${{ matrix.os }} ${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+        backend: [openssl, symcrypt]
+        tpm_source: [oss, azure]
+        os: [linux, windows]
+        arch: [x86_64, aarch64]
+        exclude:
+          # Someday...
+          - backend: symcrypt
+            tpm_source: oss
         include:
-          - name: openssl (oss, linux)
-            runner: ubuntu-latest
+          - backend: openssl
             features: openssl,vendored
-            tpm_source: oss
-          - name: openssl (oss, linux arm64)
-            runner: ubuntu-24.04-arm
-            features: openssl,vendored
-            tpm_source: oss
-          - name: openssl (oss, windows)
-            runner: windows-latest
-            features: openssl,vendored
-            tpm_source: oss
-          - name: openssl (oss, windows arm64)
-            runner: windows-11-arm
-            features: openssl,vendored
-            tpm_source: oss
-          - name: openssl (azure, linux)
-            runner: ubuntu-latest
-            features: openssl,vendored
-            tpm_source: azure
-          - name: openssl (azure, linux arm64)
-            runner: ubuntu-24.04-arm
-            features: openssl,vendored
-            tpm_source: azure
-          - name: openssl (azure, windows)
-            runner: windows-latest
-            features: openssl,vendored
-            tpm_source: azure
-          - name: openssl (azure, windows arm64)
-            runner: windows-11-arm
-            features: openssl,vendored
-            tpm_source: azure
-          # The prebuilt SymCrypt is a musl build
-          - name: symcrypt (azure, linux)
-            runner: ubuntu-latest
+          - backend: symcrypt
             features: symcrypt
-            target: x86_64-unknown-linux-musl
-            tpm_source: azure
-          - name: symcrypt (azure, linux arm64)
+          - os: linux
+            arch: x86_64
+            runner: ubuntu-latest
+          - os: linux
+            arch: aarch64
             runner: ubuntu-24.04-arm
-            features: symcrypt
-            target: aarch64-unknown-linux-musl
-            tpm_source: azure
+          - os: windows
+            arch: x86_64
+            runner: windows-latest
+          - os: windows
+            arch: aarch64
+            runner: windows-11-arm
+          # Our Symcrypt build is only available for Linux musl targets
+          - os: linux
+            arch: x86_64
+            backend: symcrypt
+            RUST_TARGET: x86_64-unknown-linux-musl
+          - os: linux
+            arch: aarch64
+            backend: symcrypt
+            RUST_TARGET: aarch64-unknown-linux-musl
     env:
+      RUST_TARGET: ${{ matrix.RUST_TARGET || '' }}
       # Only consulted when building for the corresponding musl target. The TPM's
       # CMake enables CXX even though `Tpm_BuildOption_LibOnly` compiles only C,
       # so the C++ compiler just has to exist.
@@ -129,8 +121,8 @@ jobs:
         run: rustup component add clippy rustfmt
 
       - name: Install Rust target
-        if: matrix.target != ''
-        run: rustup target add ${{ matrix.target }}
+        if: env.RUST_TARGET != ''
+        run: rustup target add ${{ env.RUST_TARGET }}
 
       - name: Install build dependencies
         if: runner.os == 'Linux'
@@ -139,11 +131,11 @@ jobs:
           sudo apt-get install -y cmake perl pkg-config
 
       - name: Install musl build dependencies
-        if: contains(matrix.target, 'musl')
+        if: contains(env.RUST_TARGET, 'musl')
         run: sudo apt-get install -y musl-tools
 
       - name: Install OpenSSL build dependencies
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && matrix.backend == 'openssl'
         shell: pwsh
         run: |
           choco install strawberryperl nasm --no-progress --yes
@@ -156,10 +148,11 @@ jobs:
 
       # Exports SYMCRYPT_INCLUDE_DIR and SYMCRYPT_LIB_DIR via $GITHUB_ENV.
       - name: Fetch SymCrypt
-        if: contains(matrix.features, 'symcrypt')
+        if: matrix.backend == 'symcrypt'
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./scripts/fetch-symcrypt.sh
+        run: ./scripts/fetch-symcrypt.sh --tag "$OPENVMM_DEPS_VERSION" --arch "${{ matrix.arch }}" --platform "${{ matrix.os }}"
 
       - name: cargo fmt --check
         id: rustfmt
@@ -169,29 +162,29 @@ jobs:
       - name: Clippy
         id: clippy
         continue-on-error: true
-        run: cargo clippy --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} --workspace --all-targets --no-default-features --features ${{ matrix.features }}
+        run: cargo clippy --locked ${{ env.RUST_TARGET && format('--target {0}', env.RUST_TARGET) || '' }} --workspace --all-targets --no-default-features --features ${{ matrix.features }}
 
       - name: Test
         id: test
         continue-on-error: true
-        run: cargo test --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} --workspace --no-default-features --features ${{ matrix.features }}
+        run: cargo test --locked ${{ env.RUST_TARGET && format('--target {0}', env.RUST_TARGET) || '' }} --workspace --no-default-features --features ${{ matrix.features }}
 
       - name: Run test-harness (cold init)
         id: cold_init
         continue-on-error: true
         run: |
-          cargo run --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem
+          cargo run --locked ${{ env.RUST_TARGET && format('--target {0}', env.RUST_TARGET) || '' }} -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem
 
       - name: Run test-harness (warm restore)
         id: warm_restore
         continue-on-error: true
         run: |
-          cargo run --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem
+          cargo run --locked ${{ env.RUST_TARGET && format('--target {0}', env.RUST_TARGET) || '' }} -p test-harness --no-default-features --features ${{ matrix.features }} -- ./ci-tpm.nvmem
 
       - name: Doc
         id: doc
         continue-on-error: true
-        run: cargo doc --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} --workspace --no-deps --no-default-features --features ${{ matrix.features }}
+        run: cargo doc --locked ${{ env.RUST_TARGET && format('--target {0}', env.RUST_TARGET) || '' }} --workspace --no-deps --no-default-features --features ${{ matrix.features }}
 
       - name: Report and fail checks
         if: always()
