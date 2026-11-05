@@ -61,20 +61,23 @@ mod ffi {
 
 #[cfg(feature = "symcrypt")]
 fn init_symcrypt() {
-    // There is no `symcrypt-sys` crate to hang the library off of, so name it
-    // here. `build.rs` only supplies the search path.
-    #[link(name = "symcrypt", kind = "static")]
+    #[cfg(windows)]
+    unsafe extern "C" {
+        safe fn SymCryptInit();
+    }
+    #[cfg(not(windows))]
     unsafe extern "C" {
         safe fn SymCryptModuleInit(api: u32, minor: u32);
     }
 
-    // Must match `SYMCRYPT_CODE_VERSION_{API,MINOR}` in the SymCrypt headers;
-    // SymCrypt fatally aborts if the module doesn't support the request.
-    const SYMCRYPT_CODE_VERSION_API: u32 = 103;
-    const SYMCRYPT_CODE_VERSION_MINOR: u32 = 13;
-
     static INIT: std::sync::Once = std::sync::Once::new();
-    INIT.call_once(|| SymCryptModuleInit(SYMCRYPT_CODE_VERSION_API, SYMCRYPT_CODE_VERSION_MINOR));
+    INIT.call_once(|| {
+        #[cfg(windows)]
+        SymCryptInit();
+        #[cfg(not(windows))]
+        // Must match SYMCRYPT_CODE_VERSION_{API,MINOR} in the module headers.
+        SymCryptModuleInit(103, 13);
+    });
 }
 
 /// Serde de/serializable representation of the ms-tcg-tpm-sys library's runtime
